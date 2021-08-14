@@ -1,6 +1,8 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 from descartes import PolygonPatch
-import matplotlib.pyplot as plt
 
 
 def plot_poly(in_poly, ax, face_color="b", edge_color="k", alpha=0.5):
@@ -42,7 +44,21 @@ def run():
         plot_poly(poly, ax, face_color=color)
     plt.xlim(1, 10)
     plt.ylim(1, 10)
+
+    centroids = [np.array(poly.centroid.coords.xy) for poly in poly_list]
+    centroids = np.squeeze(np.array(centroids))
+    for grid_idx, center in enumerate(centroids):
+        plt.text(center[0], center[1], str(grid_idx))
     plt.show()
+
+    poly_coord_arr = np.array(sample_polygon_coords)
+    x_coords = poly_coord_arr[:, :, 0]
+    y_coords = poly_coord_arr[:, :, 1]
+
+    data_values = np.concatenate([x_coords, y_coords, centroids], axis=1)
+    columns = ["x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4", "cx", "cy"]
+    data_df = pd.DataFrame(data_values, columns=columns)
+    data_df.to_csv("data_raw.csv")
 
 
 if __name__ == '__main__':
