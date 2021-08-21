@@ -58,7 +58,7 @@ def run():
     data_values = np.concatenate([x_coords, y_coords, centroids], axis=1)
     columns = ["x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4", "cx", "cy"]
     data_df = pd.DataFrame(data_values, columns=columns)
-    data_df.to_csv("data_raw.csv")
+    data_df.to_csv("simulation_data.csv")
 
 
 if __name__ == '__main__':
