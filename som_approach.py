@@ -1,3 +1,5 @@
+import itertools
+
 import pandas as pd
 import numpy as np
 
@@ -9,12 +11,31 @@ def run():
     data = pd.read_csv("simulation_data.csv")
     centers = data[["cx", "cy"]].values
 
+    plt.figure()
+    plt.scatter(centers[:, 0], centers[:, 1])
+    plt.xlim(0, 10)
+    plt.ylim(0, 10)
+    plt.show()
+
     neuron_count_1 = 4
     neuron_count_2 = 5
 
-    som = MiniSom(neuron_count_1, neuron_count_2, 2, sigma=0.3, learning_rate=1)
+    som = MiniSom(neuron_count_1, neuron_count_2, 2, sigma=0.3, learning_rate=0.1)
     # som.pca_weights_init(centers)
-    som.train(centers, 500000, verbose=True)
+    # initialise the weights
+    mins, maxs = centers.min(axis=0), centers.max(axis=0)
+    y_axis = np.linspace(mins[1], maxs[1], neuron_count_2)
+    x_axis = np.linspace(mins[0], maxs[0], neuron_count_1)
+    init_points = np.array(list(itertools.product(x_axis, y_axis)))
+    som._weights = init_points.reshape(neuron_count_1, neuron_count_2, 2)
+
+    plt.figure()
+    plt.scatter(init_points[:, 0], init_points[:, 1])
+    plt.xlim(0, 10)
+    plt.ylim(0, 10)
+    plt.show()
+
+    som.train(centers, 5000000, verbose=True)
 
     distances = som._distance_from_weights(centers)
 
@@ -41,6 +62,8 @@ def run():
     plt.scatter(weights[:, 0], weights[:, 1])
     for i in range(len(weights)):
         plt.text(weights[i, 0], weights[i, 1], f"{np.unravel_index(i, shape=(4, 5))}")
+    plt.xlim(0, 10)
+    plt.ylim(0, 10)
     plt.show()
 
 
