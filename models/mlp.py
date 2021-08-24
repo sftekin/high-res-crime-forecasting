@@ -31,11 +31,9 @@ class MLP(nn.Module):
         self.mlp = nn.ModuleList(self.mlp)
 
     def forward(self, x):
-        batch_size = x.shape[0]
-        out = x.view(batch_size, -1)
+        out = x
         for i in range(self.num_layers):
             out = self.activation_functions[self.activations[i]](self.mlp[i](out))
-        out = out.unsqueeze(1)
         return out
 
     @staticmethod

@@ -96,9 +96,12 @@ def run():
 
     for i in range(epoch):
         adj_tensor = torch.from_numpy(adj)
+        preds = []
         for c in centers:
-            input_tensor = torch.from_numpy(c).to(device)
+            input_tensor = torch.from_numpy(c).unsqueeze(dim=0).float().to(device)
             pred = model(input_tensor)
+            preds.append(pred)
+
 
 
 
