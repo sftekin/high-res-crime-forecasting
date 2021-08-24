@@ -12,8 +12,43 @@ import torch.optim as optim
 from models.mlp import MLP
 
 
-def adj_to_grid():
-    pass
+def classes_to_adj(ind, in_shape):
+    pos_grid = np.zeros(in_shape)
+    for i in range(len(ind)):
+        x, y = np.unravel_index(ind[i], shape=in_shape)
+        pos_grid[x, y] = i + 1
+
+    adj = grid_to_adj(in_grid=pos_grid)
+
+    return adj
+
+
+def grid_to_adj(in_grid):
+    n = np.int(np.max(in_grid))
+    adj = np.zeros((n, n))
+    for i in range(in_grid.shape[0]):
+        for j in range(in_grid.shape[1]):
+            if in_grid[i, j] > 0:
+                neighbours = search_neighbours(in_grid, idx=(i, j))
+                for n in neighbours:
+                    adj[int(n) - 1] = 1
+
+    return adj
+
+
+def search_neighbours(in_grid, idx):
+    m, n = in_grid.shape
+    l = idx[0], idx[1] - 1
+    t = idx[0] - 1, idx[1]
+    r = idx[0], idx[1] + 1
+    d = idx[0] + 1, idx[1]
+    neighbours = []
+    for ind in [l, t, r, d]:
+        if (0 <= ind[0] < m) & (0 <= ind[1] < n):
+            if in_grid[ind] > 0:
+                neighbours.append(in_grid[ind])
+    return neighbours
+
 
 
 def run():
@@ -55,12 +90,11 @@ def run():
     lc = mc.LineCollection(edges, colors='k', linewidths=1)
 
     # plot the graph
-    # fig, ax = plt.subplots()
-    # ax.add_collection(lc)
-    # ax.scatter(centers[:, 0], centers[:, 1])
-    # for i in range(len(centers)):
-    #     ax.text(centers[i, 0], centers[i, 1], f"{data.index[i]}")
-    # plt.show()
+    fig, ax = plt.subplots()
+    ax.add_collection(lc)
+    ax.scatter(centers[:, 0], centers[:, 1])
+    for i in range(len(centers)):
+        ax.text(centers[i, 0], centers[i, 1], f"{data.index[i]}")
 
     # adjacency matrix
     n = len(centers)
@@ -73,7 +107,7 @@ def run():
     # plt.show()
 
     device = torch.device("cpu")
-    epoch = 1000
+    epoch = 10000
     optimizer = "adam"
     criterion = nn.MSELoss()
     learning_rate = 0.01
@@ -85,7 +119,7 @@ def run():
         "hidden_dim": [100, 50],
         "num_layers": 3,
         "bias": True,
-        "activations": ["relu", "relu", "softmax"],
+        "activations": ["relu", "relu", "sigmoid"],
     }
 
     model = MLP(**mlp_conf).to(device)
@@ -95,13 +129,22 @@ def run():
                           momentum=momentum)
 
     for i in range(epoch):
-        adj_tensor = torch.from_numpy(adj)
+        adj_target = torch.from_numpy(adj).float().to(device)
+        optimizer.zero_grad()
         preds = []
         for c in centers:
             input_tensor = torch.from_numpy(c).unsqueeze(dim=0).float().to(device)
             pred = model(input_tensor)
             preds.append(pred)
+        pred_t = torch.cat(preds)
+        adj_pred = torch.matmul(pred_t, pred_t.T)
+        loss = criterion(adj_target, adj_pred)
+        loss.backward()
+        optimizer.step()
 
+        print(i, loss)
+
+    print(torch.argmax(adj_pred, dim=1))
 
 
 
