@@ -119,7 +119,7 @@ def run():
         "hidden_dim": [100, 50],
         "num_layers": 3,
         "bias": True,
-        "activations": ["relu", "relu", "sigmoid"],
+        "activations": ["relu", "relu", "softmax"],
     }
 
     model = MLP(**mlp_conf).to(device)
@@ -129,7 +129,8 @@ def run():
                           momentum=momentum)
 
     for i in range(epoch):
-        adj_target = torch.from_numpy(adj).float().to(device)
+        # adj_target = torch.from_numpy(adj).float().to(device)
+        adj_target = adj
         optimizer.zero_grad()
         preds = []
         for c in centers:
@@ -137,14 +138,20 @@ def run():
             pred = model(input_tensor)
             preds.append(pred)
         pred_t = torch.cat(preds)
-        adj_pred = torch.matmul(pred_t, pred_t.T)
-        loss = criterion(adj_target, adj_pred)
+        ind = torch.argmax(pred_t, dim=1)
+        adj_pred = classes_to_adj(ind, in_shape=(5, 4))
+        diff_adj = np.abs(adj_target - adj_pred)
+        weight_adj = np.sum(diff_adj, axis=1)
+        weight_adj = torch.from_numpy(weight_adj).float().to(device)
+        loss = torch.sum(pred_t * weight_adj.unsqueeze(dim=1))
+        # adj_pred = torch.matmul(pred_t, pred_t.T)
+        # loss = criterion(adj_target, adj_pred)
         loss.backward()
         optimizer.step()
 
         print(i, loss)
 
-    print(torch.argmax(adj_pred, dim=1))
+    print(adj_pred)
 
 
 
