@@ -48,7 +48,7 @@ def run():
     centroids = [np.array(poly.centroid.coords.xy) for poly in poly_list]
     centroids = np.squeeze(np.array(centroids))
     for grid_idx, center in enumerate(centroids):
-        plt.text(center[0], center[1], str(grid_idx))
+        plt.text(center[0], center[1], str(grid_idx + 1))
     plt.show()
 
     poly_coord_arr = np.array(sample_polygon_coords)

@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import numpy as np
 
@@ -50,7 +52,6 @@ def search_neighbours(in_grid, idx):
     return neighbours
 
 
-
 def run():
     # read data
     data = pd.read_csv("simulation_data.csv")
@@ -95,6 +96,7 @@ def run():
     ax.scatter(centers[:, 0], centers[:, 1])
     for i in range(len(centers)):
         ax.text(centers[i, 0], centers[i, 1], f"{data.index[i]}")
+    plt.show()
 
     # adjacency matrix
     n = len(centers)
@@ -106,54 +108,102 @@ def run():
     # ax.imshow(adj)
     # plt.show()
 
-    device = torch.device("cpu")
-    epoch = 10000
-    optimizer = "adam"
-    criterion = nn.MSELoss()
-    learning_rate = 0.01
-    momentum = 0.07
+    # graph2grid
+    # graph = {}
+    # for i, nodes in intersections.items():
+    #     graph[i + 1] = [k + 1 for k in nodes]
+    graph = intersections
+    graph_drc = graph_with_drc(graph, centers)
+    M, N = 5, 6
+    grid = np.zeros((M, N))
+    grid[:] = np.nan
+    init_node = 7
+    init_grid_idx = (2, 3)
+    grid[init_grid_idx] = init_node
 
-    mlp_conf = {
-        "input_dim": 2,
-        "output_dim": 20,
-        "hidden_dim": [100, 50],
-        "num_layers": 3,
-        "bias": True,
-        "activations": ["relu", "relu", "softmax"],
+    contradictions = []
+    placed = np.array([False for _ in range(len(graph.keys()))])
+    placed[init_node] = True
+    placements = [(init_node, init_grid_idx)]
+    while not all(placed):
+        new_placements = []
+        for node_name, grid_idx in placements:
+            new_p, contr = place_neighbours(grid, graph_drc, node_name, grid_idx, placed)
+            new_placements += new_p
+            contradictions += contr
+            placed[node_name - 1] = True
+        placements = new_placements
+    print("all placed")
+
+
+def graph_with_drc(in_graph, node_coords):
+    directions = ["right", "top", "left", "bot"]
+    direction_dict = {}
+    for node_name, neigh_list in in_graph.items():
+        direction_dict[node_name] = {drc: [] for drc in directions}
+        origin_coord = node_coords[node_name]
+        for n in neigh_list:
+            n_coord = node_coords[n]
+            drc_idx = calc_dir(origin_coord, n_coord)
+            direction_dict[node_name][directions[drc_idx]].append(n)
+
+        for drc, n_list in direction_dict[node_name].items():
+            if len(n_list) > 1:
+                direction_dict[node_name][drc] = order_nodes(node_name, n_list, node_coords)
+
+    return direction_dict
+
+
+def calc_dir(p1, p2):
+    angle = math.degrees(math.atan2(p2[1]-p1[1], p2[0]-p1[0]))
+    if angle < 0:
+        drc = np.array([0, 90, -180, -90])
+    else:
+        drc = np.array([0, 90, 180, 270])
+    diff = np.abs(angle - drc)
+    return np.argmin(diff)
+
+
+def order_nodes(center_node, neigh_nodes, node_coords):
+    dist = np.array([np.sum((node_coords[coord] - node_coords[center_node]) ** 2) for coord in neigh_nodes])
+    ordered = np.argsort(dist)
+    neigh_nodes = np.array(neigh_nodes)
+    return neigh_nodes[ordered]
+
+
+def place_neighbours(in_grid, in_graph, node_name, grid_idx, placed):
+    directions = {
+        "left": (grid_idx[0], grid_idx[1] - 1),
+        "right": (grid_idx[0], grid_idx[1] + 1),
+        "top": (grid_idx[0] - 1, grid_idx[1]),
+        "bot": (grid_idx[0] + 1, grid_idx[1])
     }
 
-    model = MLP(**mlp_conf).to(device)
+    placed_nodes, contradictions = [], []
+    for drc_name, idx in directions.items():
+        if not check_exists(idx, in_grid.shape):
+            continue
 
-    optimizer = optim.SGD(model.parameters(),
-                          lr=learning_rate,
-                          momentum=momentum)
+        if not np.isnan(in_grid[idx]) and placed[int(in_grid[idx])]:
+            continue
 
-    for i in range(epoch):
-        # adj_target = torch.from_numpy(adj).float().to(device)
-        adj_target = adj
-        optimizer.zero_grad()
-        preds = []
-        for c in centers:
-            input_tensor = torch.from_numpy(c).unsqueeze(dim=0).float().to(device)
-            pred = model(input_tensor)
-            preds.append(pred)
-        pred_t = torch.cat(preds)
-        ind = torch.argmax(pred_t, dim=1)
-        adj_pred = classes_to_adj(ind, in_shape=(5, 4))
-        diff_adj = np.abs(adj_target - adj_pred)
-        weight_adj = np.sum(diff_adj, axis=1)
-        weight_adj = torch.from_numpy(weight_adj).float().to(device)
-        loss = torch.sum(pred_t * weight_adj.unsqueeze(dim=1))
-        # adj_pred = torch.matmul(pred_t, pred_t.T)
-        # loss = criterion(adj_target, adj_pred)
-        loss.backward()
-        optimizer.step()
+        avl_nodes = in_graph[node_name][drc_name]
+        if len(avl_nodes) == 0:
+            continue
 
-        print(i, loss)
+        if in_grid[idx] != np.nan and in_grid[idx] != avl_nodes[0]:
+            contradictions.append(idx)
+        in_grid[idx] = avl_nodes[0]  # think about this
+        placed_nodes.append((avl_nodes[0], idx))
 
-    print(adj_pred)
+    return placed_nodes, contradictions
 
 
+def check_exists(idx, in_shape):
+    x, y = in_shape
+    x_check = (0 <= idx[0]) & (idx[0] < x)
+    y_check = (0 <= idx[1]) & (idx[1] < y)
+    return x_check and y_check
 
 
 if __name__ == '__main__':
