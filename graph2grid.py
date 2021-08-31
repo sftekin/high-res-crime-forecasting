@@ -1,55 +1,12 @@
 import math
+from collections import Counter
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
-from shapely.geometry import Polygon, Point, LineString
-import torch
-import torch.nn as nn
-import torch.optim as optim
-
-
-from models.mlp import MLP
-
-
-def classes_to_adj(ind, in_shape):
-    pos_grid = np.zeros(in_shape)
-    for i in range(len(ind)):
-        x, y = np.unravel_index(ind[i], shape=in_shape)
-        pos_grid[x, y] = i + 1
-
-    adj = grid_to_adj(in_grid=pos_grid)
-
-    return adj
-
-
-def grid_to_adj(in_grid):
-    n = np.int(np.max(in_grid))
-    adj = np.zeros((n, n))
-    for i in range(in_grid.shape[0]):
-        for j in range(in_grid.shape[1]):
-            if in_grid[i, j] > 0:
-                neighbours = search_neighbours(in_grid, idx=(i, j))
-                for n in neighbours:
-                    adj[int(n) - 1] = 1
-
-    return adj
-
-
-def search_neighbours(in_grid, idx):
-    m, n = in_grid.shape
-    l = idx[0], idx[1] - 1
-    t = idx[0] - 1, idx[1]
-    r = idx[0], idx[1] + 1
-    d = idx[0] + 1, idx[1]
-    neighbours = []
-    for ind in [l, t, r, d]:
-        if (0 <= ind[0] < m) & (0 <= ind[1] < n):
-            if in_grid[ind] > 0:
-                neighbours.append(in_grid[ind])
-    return neighbours
+from shapely.geometry import Polygon, LineString
 
 
 def run():
@@ -109,9 +66,6 @@ def run():
     # plt.show()
 
     # graph2grid
-    # graph = {}
-    # for i, nodes in intersections.items():
-    #     graph[i + 1] = [k + 1 for k in nodes]
     graph = intersections
     graph_drc = graph_with_drc(graph, centers)
     M, N = 5, 6
@@ -131,9 +85,65 @@ def run():
             new_p, contr = place_neighbours(grid, graph_drc, node_name, grid_idx, placed)
             new_placements += new_p
             contradictions += contr
-            placed[node_name - 1] = True
+            placed[node_name] = True
         placements = new_placements
     print("all placed")
+    print(grid)
+
+    # handle contradictions
+    for idx in contradictions:
+        directions = get_directions(idx)
+        pool = []
+        for drc_name, n_idx in directions.items():
+            if not check_exists(n_idx, grid.shape):
+                continue
+
+            neigh_node = grid[n_idx]
+            node_neighbours = graph_drc[neigh_node][inv_direction(drc_name)]
+            node_neighbours = node_neighbours.tolist() if isinstance(node_neighbours, np.ndarray) else node_neighbours
+            pool += node_neighbours
+        counts = Counter(pool)
+        selected_node = sorted(counts, key=counts.get, reverse=True)[0]
+        grid[idx] = selected_node
+    print(grid)
+
+
+def classes_to_adj(ind, in_shape):
+    pos_grid = np.zeros(in_shape)
+    for i in range(len(ind)):
+        x, y = np.unravel_index(ind[i], shape=in_shape)
+        pos_grid[x, y] = i + 1
+
+    adj = grid_to_adj(in_grid=pos_grid)
+
+    return adj
+
+
+def grid_to_adj(in_grid):
+    n = np.int(np.max(in_grid))
+    adj = np.zeros((n, n))
+    for i in range(in_grid.shape[0]):
+        for j in range(in_grid.shape[1]):
+            if in_grid[i, j] > 0:
+                neighbours = search_neighbours(in_grid, idx=(i, j))
+                for n in neighbours:
+                    adj[int(n) - 1] = 1
+
+    return adj
+
+
+def search_neighbours(in_grid, idx):
+    m, n = in_grid.shape
+    l = idx[0], idx[1] - 1
+    t = idx[0] - 1, idx[1]
+    r = idx[0], idx[1] + 1
+    d = idx[0] + 1, idx[1]
+    neighbours = []
+    for ind in [l, t, r, d]:
+        if (0 <= ind[0] < m) & (0 <= ind[1] < n):
+            if in_grid[ind] > 0:
+                neighbours.append(in_grid[ind])
+    return neighbours
 
 
 def graph_with_drc(in_graph, node_coords):
@@ -155,7 +165,7 @@ def graph_with_drc(in_graph, node_coords):
 
 
 def calc_dir(p1, p2):
-    angle = math.degrees(math.atan2(p2[1]-p1[1], p2[0]-p1[0]))
+    angle = math.degrees(math.atan2(p2[1] - p1[1], p2[0] - p1[0]))
     if angle < 0:
         drc = np.array([0, 90, -180, -90])
     else:
@@ -172,12 +182,7 @@ def order_nodes(center_node, neigh_nodes, node_coords):
 
 
 def place_neighbours(in_grid, in_graph, node_name, grid_idx, placed):
-    directions = {
-        "left": (grid_idx[0], grid_idx[1] - 1),
-        "right": (grid_idx[0], grid_idx[1] + 1),
-        "top": (grid_idx[0] - 1, grid_idx[1]),
-        "bot": (grid_idx[0] + 1, grid_idx[1])
-    }
+    directions = get_directions(in_idx=grid_idx)
 
     placed_nodes, contradictions = [], []
     for drc_name, idx in directions.items():
@@ -187,16 +192,26 @@ def place_neighbours(in_grid, in_graph, node_name, grid_idx, placed):
         if not np.isnan(in_grid[idx]) and placed[int(in_grid[idx])]:
             continue
 
-        avl_nodes = in_graph[node_name][drc_name]
-        if len(avl_nodes) == 0:
+        neigh_nodes = in_graph[node_name][drc_name]
+        if len(neigh_nodes) == 0:
             continue
 
-        if in_grid[idx] != np.nan and in_grid[idx] != avl_nodes[0]:
+        if not np.isnan(in_grid[idx]) and in_grid[idx] != neigh_nodes[0]:
             contradictions.append(idx)
-        in_grid[idx] = avl_nodes[0]  # think about this
-        placed_nodes.append((avl_nodes[0], idx))
+        in_grid[idx] = neigh_nodes[0]  # think about this
+        placed_nodes.append((neigh_nodes[0], idx))
 
     return placed_nodes, contradictions
+
+
+def get_directions(in_idx):
+    directions = {
+        "left": (in_idx[0], in_idx[1] - 1),
+        "right": (in_idx[0], in_idx[1] + 1),
+        "top": (in_idx[0] - 1, in_idx[1]),
+        "bot": (in_idx[0] + 1, in_idx[1])
+    }
+    return directions
 
 
 def check_exists(idx, in_shape):
@@ -206,6 +221,15 @@ def check_exists(idx, in_shape):
     return x_check and y_check
 
 
+def inv_direction(direction):
+    inv_dir = {
+        "left": "right",
+        "right": "left",
+        "top": "bot",
+        "bot": "top",
+    }
+    return inv_dir[direction]
+
+
 if __name__ == '__main__':
     run()
-
