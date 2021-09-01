@@ -32,6 +32,11 @@ class DataCreator:
 
         grid = self._convert_grid(in_df=crime_df)
 
+        # todo: think about side information, block, description, location desc., arrest, domestic, district
+        # todo: think about feature extraction, spatial and temporal distance to previous crime
+        # todo: think about time and spatial days
+        # todo: after forming one frame save it under temp directory
+        # todo: dont forget area merging
 
     @staticmethod
     def _preprocess(crime_df):
@@ -70,8 +75,8 @@ class DataCreator:
         return crime_df
 
     def _convert_grid(self, in_df):
-        x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], N + 1)
-        y_ticks = np.linspace(self.coord_range[0][0], self.coord_range[0][1], M + 1)
+        x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n + 1)
+        y_ticks = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m + 1)
 
         time_len = len(self.date_r)
         grid = np.zeros((time_len, self.m, self.n))
