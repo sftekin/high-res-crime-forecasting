@@ -30,7 +30,15 @@ class DataCreator:
         crime_types = list(crime_df["Primary Type"].unique())
         self.data_columns = crime_types
 
-        grid = self._convert_grid(in_df=crime_df)
+        grid_arr = []
+        for i in range(len(crime_types)):
+            in_df = crime_df[crime_df["Primary Type"] == crime_types[i]]
+            print(crime_types[i])
+            grid = self._convert_grid(in_df=in_df)
+            grid_arr.append(grid)
+        grid_arr = np.stack(grid_arr, axis=-1)
+
+        print()
 
         # todo: think about side information, block, description, location desc., arrest, domestic, district
         # todo: think about feature extraction, spatial and temporal distance to previous crime
