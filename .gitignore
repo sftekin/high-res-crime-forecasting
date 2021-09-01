@@ -1,0 +1,13 @@
+.idea
+.coverage
+
+__pycache__
+
+data/*
+!data/.gitkeep
+
+results/*
+!results/.gitkeep
+
+figures/*
+!figures/.gitkeep
