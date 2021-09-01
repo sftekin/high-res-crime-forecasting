@@ -10,7 +10,7 @@ from shapely.geometry import Polygon, LineString
 
 
 def run():
-    # read data
+    # read dataset
     data = pd.read_csv("simulation_data.csv")
 
     # get the corner points of the rectangels
