@@ -2,11 +2,14 @@ import os
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class DataCreator:
 
     dataset_dir = "dataset"
+    figures_path = "figures"
 
     def __init__(self, data_raw_path, coord_range, spatial_res, temporal_res, time_range):
         self.__data_path = os.path.join(self.dataset_dir, data_raw_path)
@@ -35,8 +38,10 @@ class DataCreator:
             in_df = crime_df[crime_df["Primary Type"] == crime_types[i]]
             print(crime_types[i])
             grid = self._convert_grid(in_df=in_df)
-            grid_arr.append(grid)
-        grid_arr = np.stack(grid_arr, axis=-1)
+            self.plot_3d(in_grid=grid, title=crime_types[i])
+            # self.plot_3d_bar(grid)
+            # grid_arr.append(grid)
+        # grid_arr = np.stack(grid_arr, axis=-1)
 
         print()
 
@@ -93,8 +98,52 @@ class DataCreator:
                 lat_idx = (y_ticks[j] < in_df["Latitude"]) & (in_df["Latitude"] <= y_ticks[j + 1])
                 lon_idx = (x_ticks[i] < in_df["Longitude"]) & (in_df["Longitude"] <= x_ticks[i + 1])
                 cell_arr = in_df[lat_idx & lon_idx].resample('H').size().reindex(self.date_r, fill_value=0).values
-                grid[:, self.n - j - 1, i] = cell_arr
+                grid[:, self.m - j - 1, i] = cell_arr
 
         return grid
 
+    def plot_3d(self, in_grid, title):
+        sum_arr = np.sum(in_grid, axis=0)
+        x = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n)
+        y = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m)
+        xx, yy = np.meshgrid(x, y)
 
+        ax = Axes3D(plt.figure())
+        ax.plot_surface(xx, yy, np.flip(sum_arr, axis=1), cmap=plt.cm.viridis, cstride=1, rstride=1)
+        ax.set_xticks(x[::10])
+        ax.set_yticks(y[::10])
+        ax.set_xticklabels(np.round(x[::10], decimals=2))
+        ax.set_yticklabels(np.round(y[::10], decimals=2))
+        ax.view_init(30, 90)
+        save_path = os.path.join(self.figures_path, f"{title}.png")
+        plt.savefig(save_path, dpi=250, bbox_inches='tight')
+
+    @staticmethod
+    def plot_3d_bar(in_grid):
+        import matplotlib.colors as colors
+        import matplotlib.cm as cm
+
+        sum_arr = np.flip(np.sum(in_grid, axis=0), axis=1)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        x_data, y_data = np.meshgrid(np.arange(sum_arr.shape[1]),
+                                     np.arange(sum_arr.shape[0]))
+        x_data = x_data.flatten()
+        y_data = y_data.flatten()
+        z_data = sum_arr.flatten()
+
+        dz = z_data
+        offset = dz + np.abs(dz.min())
+        fracs = offset.astype(float) / offset.max()
+        norm = colors.Normalize(fracs.min(), fracs.max())
+        color_values = cm.viridis(norm(fracs.tolist()))
+
+        ax.bar3d(x_data,
+                 y_data,
+                 np.zeros(len(z_data)),
+                 1, 1, z_data, color=color_values)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        # ax.view_init(30, 90)
+        plt.show()
