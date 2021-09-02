@@ -2,12 +2,13 @@ import os
 
 import pandas as pd
 import numpy as np
+import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import LinearSegmentedColormap
 
 
 class DataCreator:
-
     dataset_dir = "dataset"
     figures_path = "figures"
 
@@ -38,8 +39,9 @@ class DataCreator:
             in_df = crime_df[crime_df["Primary Type"] == crime_types[i]]
             print(crime_types[i])
             grid = self._convert_grid(in_df=in_df)
+            self.plot_2d(grid, crime_types[i])
             self.plot_3d(in_grid=grid, title=crime_types[i])
-            # self.plot_3d_bar(grid)
+            self.plot_3d_bar(grid, title=crime_types[i])
             # grid_arr.append(grid)
         # grid_arr = np.stack(grid_arr, axis=-1)
 
@@ -79,7 +81,7 @@ class DataCreator:
         return crime_df
 
     def _crop_spatial(self, crime_df):
-        lat_idx = (self.coord_range[0][0] <= crime_df["Latitude"]) &\
+        lat_idx = (self.coord_range[0][0] <= crime_df["Latitude"]) & \
                   (crime_df["Latitude"] <= self.coord_range[0][1])
         lon_idx = (self.coord_range[1][0] <= crime_df["Longitude"]) & \
                   (crime_df["Longitude"] <= self.coord_range[1][1])
@@ -102,6 +104,30 @@ class DataCreator:
 
         return grid
 
+    def plot_2d(self, in_grid, title):
+        sum_arr = np.sum(in_grid, axis=0)
+
+        fig, ax = plt.subplots(figsize=(10, 15))
+        self.plot_background(ax=ax)
+
+        # create your own custom color
+        color_array = plt.cm.get_cmap('Reds')(range(1000))
+        color_array[:, -1] = np.linspace(0.6, 1, 1000)
+        map_object = LinearSegmentedColormap.from_list(name='fading_red', colors=color_array)
+        plt.register_cmap(cmap=map_object)
+
+        ax.imshow(X=sum_arr,
+                  cmap="fading_red",
+                  interpolation='nearest',
+                  extent=[*self.coord_range[1], *self.coord_range[0]])
+        ax.set_title(title, fontsize=22)
+
+        dir_path = os.path.join(self.figures_path, "2d")
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        save_path = os.path.join(dir_path, f"{title}.png")
+        plt.savefig(save_path, dpi=250, bbox_inches='tight')
+
     def plot_3d(self, in_grid, title):
         sum_arr = np.sum(in_grid, axis=0)
         x = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n)
@@ -115,11 +141,14 @@ class DataCreator:
         ax.set_xticklabels(np.round(x[::10], decimals=2))
         ax.set_yticklabels(np.round(y[::10], decimals=2))
         ax.view_init(30, 90)
-        save_path = os.path.join(self.figures_path, f"{title}.png")
+
+        dir_path = os.path.join(self.figures_path, "3d", "surface")
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        save_path = os.path.join(dir_path, f"{title}.png")
         plt.savefig(save_path, dpi=250, bbox_inches='tight')
 
-    @staticmethod
-    def plot_3d_bar(in_grid):
+    def plot_3d_bar(self, in_grid, title):
         import matplotlib.colors as colors
         import matplotlib.cm as cm
 
@@ -146,4 +175,38 @@ class DataCreator:
         ax.set_xticks([])
         ax.set_yticks([])
         # ax.view_init(30, 90)
-        plt.show()
+        dir_path = os.path.join(self.figures_path, "3d", "bar")
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        save_path = os.path.join(dir_path, f"{title}.png")
+        plt.savefig(save_path, dpi=250, bbox_inches='tight')
+
+    def plot_background(self, ax):
+        background_path = "eda/background/chicago.png"
+        x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n + 1)
+        y_ticks = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m + 1)
+
+        x_tick_labels = ["{:2.3f}".format(long) for long in x_ticks]
+        y_tick_labels = ["{:2.3f}".format(lat) for lat in y_ticks]
+
+        ax.set_xticks(ticks=x_ticks)
+        # ax.set_xticklabels(labels=x_tick_labels,
+        #                    rotation=30,
+        #                    size=12)
+        ax.set_yticks(ticks=y_ticks)
+        # ax.set_yticklabels(labels=y_tick_labels,
+        #                    size=12)
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+
+        img = mpimg.imread(background_path)
+        ax.imshow(img,
+                  interpolation='bilinear',
+                  extent=[*self.coord_range[1], *self.coord_range[0]])
+        ax.grid(True)
+        return ax
