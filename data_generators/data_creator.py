@@ -6,14 +6,18 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.colors as colors
+import matplotlib.cm as cm
 
 
 class DataCreator:
     dataset_dir = "dataset"
-    figures_path = "figures"
+    figures_dir = "figures"
+    temp_dir = "temp"
 
-    def __init__(self, data_raw_path, coord_range, spatial_res, temporal_res, time_range):
+    def __init__(self, data_raw_path, coord_range, spatial_res, temporal_res, time_range, plot):
         self.__data_path = os.path.join(self.dataset_dir, data_raw_path)
+        self.plot = plot
 
         # spatial settings
         self.coord_range = coord_range  # [[41.60, 42.05], [-87.9, -87.5]]  # Lat-Lon
@@ -24,6 +28,7 @@ class DataCreator:
         self.start_date, self.end_date = time_range
         self.date_r = pd.date_range(start=self.start_date, end=self.end_date, freq=f'{self.temp_res}H')
 
+        self.save_dir = os.path.join(self.temp_dir, f"data_dump_{self.temp_res}_{self.m}_{self.n}")
         self.data_columns = None
 
     def create(self):
@@ -34,18 +39,21 @@ class DataCreator:
         crime_types = list(crime_df["Primary Type"].unique())
         self.data_columns = crime_types
 
-        grid_arr = []
+        # create the data_dump directory
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+
         for i in range(len(crime_types)):
             in_df = crime_df[crime_df["Primary Type"] == crime_types[i]]
             print(crime_types[i])
             grid = self._convert_grid(in_df=in_df)
-            self.plot_2d(grid, crime_types[i])
-            self.plot_3d(in_grid=grid, title=crime_types[i])
-            self.plot_3d_bar(grid, title=crime_types[i])
-            # grid_arr.append(grid)
-        # grid_arr = np.stack(grid_arr, axis=-1)
+            if self.plot:
+                grid = np.squeeze(grid)
+                self._plot_2d(grid, crime_types[i])
+                self._plot_3d(in_grid=grid, title=crime_types[i])
+                self._plot_3d_bar(grid, title=crime_types[i])
 
-        print()
+        print(f"Data Creation finished, data saved under {self.save_dir}")
 
         # todo: think about side information, block, description, location desc., arrest, domestic, district
         # todo: think about feature extraction, spatial and temporal distance to previous crime
@@ -100,15 +108,27 @@ class DataCreator:
                 lat_idx = (y_ticks[j] < in_df["Latitude"]) & (in_df["Latitude"] <= y_ticks[j + 1])
                 lon_idx = (x_ticks[i] < in_df["Longitude"]) & (in_df["Longitude"] <= x_ticks[i + 1])
                 cell_arr = in_df[lat_idx & lon_idx].resample('H').size().reindex(self.date_r, fill_value=0).values
-                grid[:, self.m - j - 1, i] = cell_arr
+                grid[:, self.m - j - 1, i] = cell_arr  # start from left-bot
+        grid = np.expand_dims(grid, -1)
+
+        # save each time frame in temp directory
+        for t in range(time_len):
+            grid_t = grid[t]
+            save_path = os.path.join(self.save_dir, f"{t}.npy")
+            if os.path.exists(save_path):
+                with open(save_path, "rb") as f:
+                    saved_arr = np.load(f)
+                grid_t = np.concatenate([saved_arr, grid_t], axis=-1)
+            with open(save_path, "wb") as f:
+                np.save(f, grid_t)
 
         return grid
 
-    def plot_2d(self, in_grid, title):
+    def _plot_2d(self, in_grid, title):
         sum_arr = np.sum(in_grid, axis=0)
 
         fig, ax = plt.subplots(figsize=(10, 15))
-        self.plot_background(ax=ax)
+        self._plot_background(ax=ax)
 
         # create your own custom color
         color_array = plt.cm.get_cmap('Reds')(range(1000))
@@ -122,13 +142,13 @@ class DataCreator:
                   extent=[*self.coord_range[1], *self.coord_range[0]])
         ax.set_title(title, fontsize=22)
 
-        dir_path = os.path.join(self.figures_path, "2d")
+        dir_path = os.path.join(self.figures_dir, "2d")
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         save_path = os.path.join(dir_path, f"{title}.png")
         plt.savefig(save_path, dpi=250, bbox_inches='tight')
 
-    def plot_3d(self, in_grid, title):
+    def _plot_3d(self, in_grid, title):
         sum_arr = np.sum(in_grid, axis=0)
         x = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n)
         y = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m)
@@ -142,17 +162,14 @@ class DataCreator:
         ax.set_yticklabels(np.round(y[::10], decimals=2))
         ax.view_init(30, 90)
 
-        dir_path = os.path.join(self.figures_path, "3d", "surface")
+        dir_path = os.path.join(self.figures_dir, "3d", "surface")
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         save_path = os.path.join(dir_path, f"{title}.png")
         plt.savefig(save_path, dpi=250, bbox_inches='tight')
 
-    def plot_3d_bar(self, in_grid, title):
-        import matplotlib.colors as colors
-        import matplotlib.cm as cm
-
-        sum_arr = np.flip(np.sum(in_grid, axis=0), axis=1)
+    def _plot_3d_bar(self, in_grid, title):
+        sum_arr = np.sum(in_grid, axis=0)
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
 
@@ -175,29 +192,27 @@ class DataCreator:
         ax.set_xticks([])
         ax.set_yticks([])
         # ax.view_init(30, 90)
-        dir_path = os.path.join(self.figures_path, "3d", "bar")
+        dir_path = os.path.join(self.figures_dir, "3d", "bar")
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         save_path = os.path.join(dir_path, f"{title}.png")
         plt.savefig(save_path, dpi=250, bbox_inches='tight')
 
-    def plot_background(self, ax):
+    def _plot_background(self, ax, tick_labels=False):
         background_path = "eda/background/chicago.png"
         x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n + 1)
         y_ticks = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m + 1)
-
-        x_tick_labels = ["{:2.3f}".format(long) for long in x_ticks]
-        y_tick_labels = ["{:2.3f}".format(lat) for lat in y_ticks]
-
         ax.set_xticks(ticks=x_ticks)
-        # ax.set_xticklabels(labels=x_tick_labels,
-        #                    rotation=30,
-        #                    size=12)
         ax.set_yticks(ticks=y_ticks)
-        # ax.set_yticklabels(labels=y_tick_labels,
-        #                    size=12)
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
+
+        if tick_labels:
+            x_tick_labels = ["{:2.3f}".format(long) for long in x_ticks]
+            y_tick_labels = ["{:2.3f}".format(lat) for lat in y_ticks]
+            ax.set_xticklabels(labels=x_tick_labels, rotation=30, size=12)
+            ax.set_yticklabels(labels=y_tick_labels, size=12)
+        else:
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
 
         ax.spines['top'].set_visible(False)
         ax.spines['left'].set_visible(False)
@@ -205,8 +220,7 @@ class DataCreator:
         ax.spines['bottom'].set_visible(False)
 
         img = mpimg.imread(background_path)
-        ax.imshow(img,
-                  interpolation='bilinear',
-                  extent=[*self.coord_range[1], *self.coord_range[0]])
+        ax.imshow(img, interpolation='bilinear', extent=[*self.coord_range[1], *self.coord_range[0]])
         ax.grid(True)
+
         return ax
