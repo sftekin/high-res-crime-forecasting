@@ -66,10 +66,6 @@ def run():
     plt.xlim(*coord_range[1])
     plt.ylim(*coord_range[0])
     plt.show()
-    print()
-
-
-    print()
 
 
 def sum_neighbours(in_grid, idx, order=1):
@@ -78,8 +74,8 @@ def sum_neighbours(in_grid, idx, order=1):
     kernel[i-order:i+order+1, j-order:j+order+1] = 1
     count = np.sum(kernel * in_grid)
     neighbours = np.where(kernel.flatten())[0]
-    return count, neighbours
 
+    return count, neighbours
 
 
 if __name__ == '__main__':
