@@ -22,8 +22,12 @@ class Graph:
 
                 # create edge
                 n_vertices = self._get_grid_neighbours(in_grid=self.grid, idx=(j, i))
-                n_distances = self.__get_neigh_distances(v_location, n_vertices)
+                n_vertices, n_distances = self.__get_neigh_distances(v_location, n_vertices)
                 self.edges[ravel_idx] = [n_vertices, n_distances]
+
+    def get_closest_neighbour(self, idx):
+        vertices, distances = self.edges[idx]
+        return vertices[0]
 
     def merge_vertices(self, v1, v2):
         # merge vertex
@@ -33,13 +37,18 @@ class Graph:
 
         # merge edge
         n_vertices = self.edges[v1][0] + self.edges[v2][0]
-        n_distances = self.__get_neigh_distances(v_loc, n_vertices)
+        n_vertices.remove(v1)
+        n_vertices.remove(v2)
+
+        n_vertices, n_distances = self.__get_neigh_distances(v_loc, n_vertices)
 
         # remove prev and add new
         self.__remove_vertex(v1)
         self.__remove_vertex(v2)
-        self.vertices[f"{v1}_{v2}"] = new_vertex
-        self.edges[f"{v1}_{v2}"] = [n_vertices, n_distances]
+        self.vertices[v1] = new_vertex
+        self.edges[v1] = [n_vertices, n_distances]
+
+        return v_val
 
     def __remove_vertex(self, v_id):
         del self.vertices[v_id]
@@ -47,12 +56,13 @@ class Graph:
 
     def __get_neigh_distances(self, v_loc, n_vertices):
         n_locations = [self.location_grid[np.unravel_index(n, shape=self.grid.shape)] for n in n_vertices]
-        n_distances = [self._eu_distance(v_loc, n) for n in n_locations]
-        n_values = [self.vertices[n][0] for n in n_vertices]
-        concat_arr = np.concatenate([n_distances, n_values], axis=1)
-        concat_arr = concat_arr[np.lexsort((concat_arr[:, 0], concat_arr[:, 1]))]
-
-        return concat_arr
+        n_distances = np.array([self._eu_distance(v_loc, n) for n in n_locations])
+        n_values = [self.grid[np.unravel_index(n, shape=self.grid.shape)] for n in n_vertices]
+        concat_arr = np.stack([n_distances, n_values], axis=1)
+        sort_idx = np.lexsort((concat_arr[:, 0], concat_arr[:, 1]))
+        ordered_d = n_distances[sort_idx]
+        ordered_n = [n_vertices[i] for i in sort_idx]
+        return ordered_n, ordered_d
 
     @staticmethod
     def _get_grid_neighbours(in_grid, idx):
