@@ -1,5 +1,11 @@
+import itertools
+
 import numpy as np
 import matplotlib.pyplot as plt
+from shapely.geometry import Polygon
+from shapely.ops import cascaded_union
+
+from graph2grid.create_sim_data import plot_poly
 
 
 def run():
@@ -31,9 +37,37 @@ def run():
         cell_flags[neighbours] = True
         regions.append(neighbours.tolist())
 
-        filled_grid = np.zeros(len(sorted_cells))
-        for i, region in enumerate(regions):
-            filled_grid[np.array(region)] = i
+    m, n = 100, 66
+    coord_range = [[41.60, 42.05], [-87.9, -87.5]]
+    x = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
+    y = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
+
+    coord_grid = np.zeros((m, n, 4, 2))
+    for j in range(m):
+        for i in range(n):
+            coords = np.array(list(itertools.product(x[i:i+2], y[j:j+2])))
+            coords_ordered = coords[[0, 1, 3, 2], :]
+            coord_grid[m - j - 1, i, :] = coords_ordered
+
+    polygons_list = []
+    for region in regions:
+        region_coords = []
+        for idx in region:
+            grid_idx = np.unravel_index(idx, shape=grid_sum.shape)
+            region_coords.append(coord_grid[grid_idx])
+        polygons = [Polygon(coord) for coord in region_coords]
+        boundary = cascaded_union(polygons)
+        polygons_list.append(boundary)
+
+    fig, ax = plt.subplots()
+    for i, poly in enumerate(polygons_list):
+        color = f"C{i}"
+        plot_poly(poly, ax, face_color=color)
+    plt.xlim(*coord_range[1])
+    plt.ylim(*coord_range[0])
+    plt.show()
+    print()
+
 
     print()
 
