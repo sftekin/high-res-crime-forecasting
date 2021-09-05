@@ -8,5 +8,5 @@ class Config:
             "spatial_res": (100, 66),
             "temporal_res": 1,
             "time_range": ("2015-01-01", "2019-11-01"),
-            "plot": False
+            "plot": True
         }

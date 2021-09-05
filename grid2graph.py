@@ -13,6 +13,7 @@ def run():
     coord_range = [[41.60, 42.05], [-87.9, -87.5]]
     with open("grid.npy", "rb") as f:
         grid = np.load(f)
+        grid = np.squeeze(grid)
     grid_sum = np.sum(grid, axis=0)
     coord_grid = create_coord_grid(in_grid=grid_sum, coord_range=coord_range)  # M, N, 4, 2
     grid_center_locs = np.mean(coord_grid, axis=2)
@@ -28,6 +29,7 @@ def run():
     threshold = 50
     regions = []
     for i in range(len(sorted_cells)):
+        print(f"{i/len(sorted_cells) * 100:.2f}")
         if cell_flags[i]:
             continue
 
@@ -44,6 +46,8 @@ def run():
             region.append(neigh_vertex)
         cell_flags[i] = True
         regions.append(region)
+
+    print()
 
 
 def sum_neighbours(in_grid, idx, order=1):
