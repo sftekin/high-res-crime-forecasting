@@ -12,7 +12,7 @@ from graph import Graph
 def divide_into_regions(in_grid, threshold, r, c):
     grid = in_grid[r[0]:r[1], c[0]:c[1]]
 
-    if np.sum(grid) <= 200 or grid.shape <= (2, 2):
+    if np.sum(grid) <= threshold or 1 in grid.shape:
         return [[r, c]]
     else:
         split_ids = split_regions(in_grid, r, c)
@@ -62,23 +62,11 @@ def run():
     grid_sum = np.sum(grid, axis=0)
 
     coord_grid = create_coord_grid(in_grid=grid_sum, coord_range=coord_range)  # M, N, 4, 2
-    grid_center_locs = np.mean(coord_grid, axis=2)
-
     m, n = grid_sum.shape
     init_r, init_c = (0, m), (0, n)
-    regions = divide_into_regions(grid_sum, threshold=50, r=init_r, c=init_c)
+    regions = divide_into_regions(grid_sum, threshold=1000, r=init_r, c=init_c)
     plot_regions(regions, coord_grid, coord_range)
     print()
-
-
-def sum_neighbours(in_grid, idx, order=1):
-    kernel = np.zeros(in_grid.shape)
-    i, j = idx
-    kernel[i-order:i+order+1, j-order:j+order+1] = 1
-    count = np.sum(kernel * in_grid)
-    neighbours = np.where(kernel.flatten())[0]
-
-    return count, neighbours
 
 
 def create_coord_grid(in_grid, coord_range):
