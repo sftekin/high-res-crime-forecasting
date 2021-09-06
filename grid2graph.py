@@ -67,38 +67,8 @@ def run():
     m, n = grid_sum.shape
     init_r, init_c = (0, m), (0, n)
     regions = divide_into_regions(grid_sum, threshold=50, r=init_r, c=init_c)
+    plot_regions(regions, coord_grid, coord_range)
     print()
-
-    # # create graph
-    # graph = Graph(grid_sum, grid_center_locs)
-    # graph.create_from_grid()
-    #
-    # sorted_cells_idx = np.argsort(grid_sum.flatten())[::-1]
-    # sorted_cells = grid_sum.flatten()[sorted_cells_idx]
-    # cell_flags = np.zeros(len(sorted_cells), dtype=bool)
-    #
-    # threshold = 50
-    # regions = []
-    # for i in range(len(sorted_cells)):
-    #     print(f"{i/len(sorted_cells) * 100:.2f}")
-    #     if cell_flags[i]:
-    #         continue
-    #
-    #     if sorted_cells[i] >= threshold:
-    #         regions.append([sorted_cells_idx[i]])
-    #         continue
-    #
-    #     count = sorted_cells[i]
-    #     region = []
-    #     while count < threshold:
-    #         neigh_vertex = graph.get_closest_neighbour(idx=i)
-    #         count = graph.merge_vertices(v1=i, v2=neigh_vertex)
-    #         cell_flags[neigh_vertex] = True
-    #         region.append(neigh_vertex)
-    #     cell_flags[i] = True
-    #     regions.append(region)
-    #
-    # print()
 
 
 def sum_neighbours(in_grid, idx, order=1):
@@ -126,20 +96,25 @@ def create_coord_grid(in_grid, coord_range):
     return coord_grid
 
 
-def plot_regions(regions, coord_grid, coord_range):
+def plot_regions(regions, coord_grid, coord_range, colorize=False):
     polygons_list = []
-    for region in regions:
-        region_coords = []
-        for idx in region:
-            grid_idx = np.unravel_index(idx, shape=coord_grid.shape[:2])
-            region_coords.append(coord_grid[grid_idx])
-        polygons = [Polygon(coord) for coord in region_coords]
-        boundary = cascaded_union(polygons)
-        polygons_list.append(boundary)
+    for r, c in regions:
+        region_pts = coord_grid[r[0]:r[1], c[0]:c[1]]
+        region_pts = region_pts.reshape(-1, 2)
+        lon_min, lon_max = np.min(region_pts[:, 0]), np.max(region_pts[:, 0])
+        lat_min, lat_max = np.min(region_pts[:, 1]), np.max(region_pts[:, 1])
+
+        coords = np.array(list(itertools.product([lon_min, lon_max], [lat_min, lat_max])))
+        coords_ordered = coords[[0, 1, 3, 2], :]
+        polygon = Polygon(coords_ordered)
+        polygons_list.append(polygon)
 
     fig, ax = plt.subplots()
     for i, poly in enumerate(polygons_list):
-        color = f"C{i}"
+        if colorize:
+            color = f"C{i}"
+        else:
+            color = "w"
         plot_poly(poly, ax, face_color=color)
     plt.xlim(*coord_range[1])
     plt.ylim(*coord_range[0])
