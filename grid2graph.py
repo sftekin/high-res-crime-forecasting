@@ -9,45 +9,96 @@ from graph2grid.create_sim_data import plot_poly
 from graph import Graph
 
 
+def divide_into_regions(in_grid, threshold, r, c):
+    grid = in_grid[r[0]:r[1], c[0]:c[1]]
+
+    if np.sum(grid) <= 200 or grid.shape <= (2, 2):
+        return [[r, c]]
+    else:
+        split_ids = split_regions(in_grid, r, c)
+        region_ids = []
+        for r, c in split_ids:
+            region_id = divide_into_regions(in_grid, threshold, r, c)
+            region_ids += region_id
+
+        return region_ids
+
+
+def split_regions(in_grid, r, c):
+    m, n = r[1] - r[0], c[1] - c[0]
+    pos_m, pos_n = [m // 2], [n // 2]
+    if m % 2 > 0:
+        pos_m.append(m//2 + 1)
+    if n % 2 > 0:
+        pos_n.append(n // 2 + 1)
+    pos_m = [i + r[0] for i in pos_m]
+    pos_n = [i + c[0] for i in pos_n]
+
+    max_sum = -1
+    best_indices = None
+    r_i, r_j = r
+    c_i, c_j = c
+    for i, (m_id, n_id) in enumerate(itertools.product(pos_m, pos_n)):
+        indices = [[(r_i, m_id), (c_i, n_id)],
+                   [(r_i, m_id), (n_id, c_j)],
+                   [(m_id, r_j), (c_i, n_id)],
+                   [(m_id, r_j), (n_id, c_j)]]
+        regions = [in_grid[x[0]:x[1], y[0]:y[1]] for x, y in indices]
+        region_sums = [np.sum(r) for r in regions]
+
+        if max_sum < max(region_sums):
+            best_indices = indices
+            max_sum = max(region_sums)
+
+    return best_indices
+
+
 def run():
     coord_range = [[41.60, 42.05], [-87.9, -87.5]]
+
     with open("grid.npy", "rb") as f:
         grid = np.load(f)
         grid = np.squeeze(grid)
     grid_sum = np.sum(grid, axis=0)
+
     coord_grid = create_coord_grid(in_grid=grid_sum, coord_range=coord_range)  # M, N, 4, 2
     grid_center_locs = np.mean(coord_grid, axis=2)
 
-    # create graph
-    graph = Graph(grid_sum, grid_center_locs)
-    graph.create_from_grid()
-
-    sorted_cells_idx = np.argsort(grid_sum.flatten())[::-1]
-    sorted_cells = grid_sum.flatten()[sorted_cells_idx]
-    cell_flags = np.zeros(len(sorted_cells), dtype=bool)
-
-    threshold = 50
-    regions = []
-    for i in range(len(sorted_cells)):
-        print(f"{i/len(sorted_cells) * 100:.2f}")
-        if cell_flags[i]:
-            continue
-
-        if sorted_cells[i] >= threshold:
-            regions.append([sorted_cells_idx[i]])
-            continue
-
-        count = sorted_cells[i]
-        region = []
-        while count < threshold:
-            neigh_vertex = graph.get_closest_neighbour(idx=i)
-            count = graph.merge_vertices(v1=i, v2=neigh_vertex)
-            cell_flags[neigh_vertex] = True
-            region.append(neigh_vertex)
-        cell_flags[i] = True
-        regions.append(region)
-
+    m, n = grid_sum.shape
+    init_r, init_c = (0, m), (0, n)
+    regions = divide_into_regions(grid_sum, threshold=50, r=init_r, c=init_c)
     print()
+
+    # # create graph
+    # graph = Graph(grid_sum, grid_center_locs)
+    # graph.create_from_grid()
+    #
+    # sorted_cells_idx = np.argsort(grid_sum.flatten())[::-1]
+    # sorted_cells = grid_sum.flatten()[sorted_cells_idx]
+    # cell_flags = np.zeros(len(sorted_cells), dtype=bool)
+    #
+    # threshold = 50
+    # regions = []
+    # for i in range(len(sorted_cells)):
+    #     print(f"{i/len(sorted_cells) * 100:.2f}")
+    #     if cell_flags[i]:
+    #         continue
+    #
+    #     if sorted_cells[i] >= threshold:
+    #         regions.append([sorted_cells_idx[i]])
+    #         continue
+    #
+    #     count = sorted_cells[i]
+    #     region = []
+    #     while count < threshold:
+    #         neigh_vertex = graph.get_closest_neighbour(idx=i)
+    #         count = graph.merge_vertices(v1=i, v2=neigh_vertex)
+    #         cell_flags[neigh_vertex] = True
+    #         region.append(neigh_vertex)
+    #     cell_flags[i] = True
+    #     regions.append(region)
+    #
+    # print()
 
 
 def sum_neighbours(in_grid, idx, order=1):
