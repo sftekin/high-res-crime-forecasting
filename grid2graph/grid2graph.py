@@ -3,10 +3,8 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
-from shapely.ops import cascaded_union
 
 from graph2grid.create_sim_data import plot_poly
-from graph import Graph
 
 
 def run():
@@ -23,7 +21,9 @@ def run():
     init_r, init_c = (0, m), (0, n)
     threshold = 100
     regions = divide_into_regions(grid_sum, threshold=threshold, r=init_r, c=init_c)
+    polygons_list = region2polygon(regions, coord_grid)
 
+    # plot polygons
     below_thr = []
     above_thr = []
     for i, region in enumerate(regions):
@@ -33,8 +33,6 @@ def run():
             below_thr.append(i)
         else:
             above_thr.append(i)
-
-    polygons_list = region2polygon(regions, coord_grid)
     plot_regions(polygons_list, coord_range, color="w")
     plot_regions([poly for i, poly in enumerate(polygons_list) if i in above_thr], coord_range, color="w")
     plot_regions([poly for i, poly in enumerate(polygons_list) if i in below_thr], coord_range, color="r")
