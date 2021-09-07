@@ -9,10 +9,55 @@ from graph2grid.create_sim_data import plot_poly
 from graph import Graph
 
 
+def run():
+    coord_range = [[41.60, 42.05], [-87.9, -87.5]]
+
+    with open("grid.npy", "rb") as f:
+        grid = np.load(f)
+        grid = np.squeeze(grid)
+    grid_sum = np.sum(grid, axis=0)
+
+    coord_grid = create_coord_grid(in_grid=grid_sum, coord_range=coord_range)  # M, N, 4, 2
+
+    m, n = grid_sum.shape
+    init_r, init_c = (0, m), (0, n)
+    threshold = 100
+    regions = divide_into_regions(grid_sum, threshold=threshold, r=init_r, c=init_c)
+
+    below_thr = []
+    above_thr = []
+    for i, region in enumerate(regions):
+        r, c = region
+        region_sum = np.sum(grid_sum[r[0]:r[1], c[0]:c[1]])
+        if region_sum < threshold:
+            below_thr.append(i)
+        else:
+            above_thr.append(i)
+
+    polygons_list = region2polygon(regions, coord_grid)
+    plot_regions(polygons_list, coord_range, color="w")
+    plot_regions([poly for i, poly in enumerate(polygons_list) if i in above_thr], coord_range, color="w")
+    plot_regions([poly for i, poly in enumerate(polygons_list) if i in below_thr], coord_range, color="r")
+
+
+def create_coord_grid(in_grid, coord_range):
+    m, n = in_grid.shape
+    x = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
+    y = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
+
+    coord_grid = np.zeros((m, n, 4, 2))
+    for j in range(m):
+        for i in range(n):
+            coords = np.array(list(itertools.product(x[i:i + 2], y[j:j + 2])))
+            coords_ordered = coords[[0, 1, 3, 2], :]
+            coord_grid[m - j - 1, i, :] = coords_ordered
+
+    return coord_grid
+
+
 def divide_into_regions(in_grid, threshold, r, c):
     grid = in_grid[r[0]:r[1], c[0]:c[1]]
-
-    if np.sum(grid) <= 200 or grid.shape <= (2, 2):
+    if np.sum(grid) < threshold or grid.shape <= (2, 2):
         return [[r, c]]
     else:
         split_ids = split_regions(in_grid, r, c)
@@ -20,7 +65,6 @@ def divide_into_regions(in_grid, threshold, r, c):
         for r, c in split_ids:
             region_id = divide_into_regions(in_grid, threshold, r, c)
             region_ids += region_id
-
         return region_ids
 
 
@@ -53,50 +97,7 @@ def split_regions(in_grid, r, c):
     return best_indices
 
 
-def run():
-    coord_range = [[41.60, 42.05], [-87.9, -87.5]]
-
-    with open("grid.npy", "rb") as f:
-        grid = np.load(f)
-        grid = np.squeeze(grid)
-    grid_sum = np.sum(grid, axis=0)
-
-    coord_grid = create_coord_grid(in_grid=grid_sum, coord_range=coord_range)  # M, N, 4, 2
-    grid_center_locs = np.mean(coord_grid, axis=2)
-
-    m, n = grid_sum.shape
-    init_r, init_c = (0, m), (0, n)
-    regions = divide_into_regions(grid_sum, threshold=50, r=init_r, c=init_c)
-    plot_regions(regions, coord_grid, coord_range)
-    print()
-
-
-def sum_neighbours(in_grid, idx, order=1):
-    kernel = np.zeros(in_grid.shape)
-    i, j = idx
-    kernel[i-order:i+order+1, j-order:j+order+1] = 1
-    count = np.sum(kernel * in_grid)
-    neighbours = np.where(kernel.flatten())[0]
-
-    return count, neighbours
-
-
-def create_coord_grid(in_grid, coord_range):
-    m, n = in_grid.shape
-    x = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
-    y = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
-
-    coord_grid = np.zeros((m, n, 4, 2))
-    for j in range(m):
-        for i in range(n):
-            coords = np.array(list(itertools.product(x[i:i + 2], y[j:j + 2])))
-            coords_ordered = coords[[0, 1, 3, 2], :]
-            coord_grid[m - j - 1, i, :] = coords_ordered
-
-    return coord_grid
-
-
-def plot_regions(regions, coord_grid, coord_range, colorize=False):
+def region2polygon(regions, coord_grid, ):
     polygons_list = []
     for r, c in regions:
         region_pts = coord_grid[r[0]:r[1], c[0]:c[1]]
@@ -109,12 +110,12 @@ def plot_regions(regions, coord_grid, coord_range, colorize=False):
         polygon = Polygon(coords_ordered)
         polygons_list.append(polygon)
 
+    return polygons_list
+
+
+def plot_regions(polygons_list, coord_range, color="w"):
     fig, ax = plt.subplots()
     for i, poly in enumerate(polygons_list):
-        if colorize:
-            color = f"C{i}"
-        else:
-            color = "w"
         plot_poly(poly, ax, face_color=color)
     plt.xlim(*coord_range[1])
     plt.ylim(*coord_range[0])
