@@ -141,7 +141,7 @@ def region2polygon(regions, coord_grid, ):
 
 
 def plot_regions(polygons_list, coord_range, color="w"):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(10, 15))
     for i, poly in enumerate(polygons_list):
         plot_poly(poly, ax, face_color=color)
     plt.xlim(*coord_range[1])
