@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 
 from graph2grid.create_sim_data import plot_poly
+from shapely.geometry import Polygon, LineString
+import matplotlib.collections
+
 # from graph import Graph
 
 
@@ -37,6 +40,30 @@ def run():
     plot_regions(polygons_list, coord_range, color="w")
     plot_regions([poly for i, poly in enumerate(polygons_list) if i in above_thr], coord_range, color="w")
     plot_regions([poly for i, poly in enumerate(polygons_list) if i in below_thr], coord_range, color="r")
+
+    intersections = {}
+    for i in range(len(polygons_list)):
+        intersections[i] = []
+        for j in range(len(polygons_list)):
+            if i == j:
+                continue
+            if polygons_list[i].intersects(polygons_list[j]) and \
+                    isinstance(polygons_list[i].intersection(polygons_list[j]), LineString):
+                intersections[i].append(j)
+
+    centers = np.concatenate([poly.centroid.coords.xy for poly in polygons_list], axis=1).T
+
+    # find edges btw centers
+    edges = []
+    for c_idx, intr in intersections.items():
+        for i in intr:
+            edges.append([centers[c_idx], centers[i]])
+    lc = matplotlib.collections.LineCollection(edges, colors='k', linewidths=1)
+
+    fig, ax = plt.subplots(figsize=(10, 15))
+    ax.add_collection(lc)
+    ax.scatter(centers[:, 0], centers[:, 1], s=10)
+    plt.show()
 
 
 def create_coord_grid(in_grid, coord_range):
