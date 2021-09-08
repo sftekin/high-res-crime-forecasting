@@ -5,7 +5,53 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 
 from graph2grid.create_sim_data import plot_poly
-from graph import Graph
+# from graph import Graph
+
+
+def run():
+    coord_range = [[41.60, 42.05], [-87.9, -87.5]]
+
+    with open("grid.npy", "rb") as f:
+        grid = np.load(f)
+        grid = np.squeeze(grid)
+    grid_sum = np.sum(grid, axis=0)
+
+    coord_grid = create_coord_grid(in_grid=grid_sum, coord_range=coord_range)  # M, N, 4, 2
+
+    m, n = grid_sum.shape
+    init_r, init_c = (0, m), (0, n)
+    threshold = 100
+    regions = divide_into_regions(grid_sum, threshold=threshold, r=init_r, c=init_c)
+    polygons_list = region2polygon(regions, coord_grid)
+
+    # plot polygons
+    below_thr = []
+    above_thr = []
+    for i, region in enumerate(regions):
+        r, c = region
+        region_sum = np.sum(grid_sum[r[0]:r[1], c[0]:c[1]])
+        if region_sum < threshold:
+            below_thr.append(i)
+        else:
+            above_thr.append(i)
+    plot_regions(polygons_list, coord_range, color="w")
+    plot_regions([poly for i, poly in enumerate(polygons_list) if i in above_thr], coord_range, color="w")
+    plot_regions([poly for i, poly in enumerate(polygons_list) if i in below_thr], coord_range, color="r")
+
+
+def create_coord_grid(in_grid, coord_range):
+    m, n = in_grid.shape
+    x = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
+    y = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
+
+    coord_grid = np.zeros((m, n, 4, 2))
+    for j in range(m):
+        for i in range(n):
+            coords = np.array(list(itertools.product(x[i:i + 2], y[j:j + 2])))
+            coords_ordered = coords[[0, 1, 3, 2], :]
+            coord_grid[m - j - 1, i, :] = coords_ordered
+
+    return coord_grid
 
 
 def divide_into_regions(in_grid, threshold, r, c):
