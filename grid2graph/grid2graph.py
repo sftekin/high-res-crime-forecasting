@@ -3,7 +3,6 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
-from shapely.ops import cascaded_union
 
 from graph2grid.create_sim_data import plot_poly
 from graph import Graph
@@ -20,7 +19,6 @@ def divide_into_regions(in_grid, threshold, r, c):
         for r, c in split_ids:
             region_id = divide_into_regions(in_grid, threshold, r, c)
             region_ids += region_id
-
         return region_ids
 
 
@@ -53,38 +51,7 @@ def split_regions(in_grid, r, c):
     return best_indices
 
 
-def run():
-    coord_range = [[41.60, 42.05], [-87.9, -87.5]]
-
-    with open("grid.npy", "rb") as f:
-        grid = np.load(f)
-        grid = np.squeeze(grid)
-    grid_sum = np.sum(grid, axis=0)
-
-    coord_grid = create_coord_grid(in_grid=grid_sum, coord_range=coord_range)  # M, N, 4, 2
-    m, n = grid_sum.shape
-    init_r, init_c = (0, m), (0, n)
-    regions = divide_into_regions(grid_sum, threshold=1000, r=init_r, c=init_c)
-    plot_regions(regions, coord_grid, coord_range)
-    print()
-
-
-def create_coord_grid(in_grid, coord_range):
-    m, n = in_grid.shape
-    x = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
-    y = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
-
-    coord_grid = np.zeros((m, n, 4, 2))
-    for j in range(m):
-        for i in range(n):
-            coords = np.array(list(itertools.product(x[i:i + 2], y[j:j + 2])))
-            coords_ordered = coords[[0, 1, 3, 2], :]
-            coord_grid[m - j - 1, i, :] = coords_ordered
-
-    return coord_grid
-
-
-def plot_regions(regions, coord_grid, coord_range, colorize=False):
+def region2polygon(regions, coord_grid, ):
     polygons_list = []
     for r, c in regions:
         region_pts = coord_grid[r[0]:r[1], c[0]:c[1]]
@@ -97,12 +64,12 @@ def plot_regions(regions, coord_grid, coord_range, colorize=False):
         polygon = Polygon(coords_ordered)
         polygons_list.append(polygon)
 
+    return polygons_list
+
+
+def plot_regions(polygons_list, coord_range, color="w"):
     fig, ax = plt.subplots()
     for i, poly in enumerate(polygons_list):
-        if colorize:
-            color = f"C{i}"
-        else:
-            color = "w"
         plot_poly(poly, ax, face_color=color)
     plt.xlim(*coord_range[1])
     plt.ylim(*coord_range[0])
