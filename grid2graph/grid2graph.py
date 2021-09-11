@@ -3,11 +3,11 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
+import matplotlib.collections
 
 from graph2grid.create_sim_data import plot_poly
 from shapely.geometry import Polygon, LineString
-import matplotlib.collections
-
+from graph2grid.graph2grid import *
 # from graph import Graph
 
 
@@ -64,6 +64,49 @@ def run():
     ax.add_collection(lc)
     ax.scatter(centers[:, 0], centers[:, 1], s=10)
     plt.show()
+
+    print()
+
+    graph = intersections
+    graph_drc = graph_with_drc(graph, centers)
+    M, N = 50, 33
+    grid = np.zeros((M, N))
+    grid[:] = np.nan
+    init_node = 600
+    init_grid_idx = (25, 16)
+    grid[init_grid_idx] = init_node
+
+    contradictions = []
+    placed = np.array([False for _ in range(len(graph.keys()))])
+    placed[init_node] = True
+    placements = [(init_node, init_grid_idx)]
+    while not all(placed):
+        new_placements = []
+        for node_name, grid_idx in placements:
+            new_p, contr = place_neighbours(grid, graph_drc, node_name, grid_idx, placed)
+            new_placements += new_p
+            contradictions += contr
+            placed[node_name] = True
+        placements = new_placements
+    print("all placed")
+    print(grid)
+
+    # handle contradictions
+    for idx in contradictions:
+        directions = get_directions(idx)
+        pool = []
+        for drc_name, n_idx in directions.items():
+            if not check_exists(n_idx, grid.shape):
+                continue
+
+            neigh_node = grid[n_idx]
+            node_neighbours = graph_drc[neigh_node][inv_direction(drc_name)]
+            node_neighbours = node_neighbours.tolist() if isinstance(node_neighbours, np.ndarray) else node_neighbours
+            pool += node_neighbours
+        counts = Counter(pool)
+        selected_node = sorted(counts, key=counts.get, reverse=True)[0]
+        grid[idx] = selected_node
+    print(grid)
 
 
 def create_coord_grid(in_grid, coord_range):
