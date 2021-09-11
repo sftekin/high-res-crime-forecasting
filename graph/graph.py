@@ -20,6 +20,12 @@ class Graph:
         self.coord_grid = None
         self.region_poly = None
         self.graph_built = False
+        self.edge_nodes = {
+            "top": [],
+            "left": [],
+            "right": [],
+            "bot": []
+        }
 
     def create(self, threshold, plot=False):
         # divide grid into regions (rectangles) according to threshold value
@@ -44,6 +50,17 @@ class Graph:
 
         # graph is built
         self.graph_built = True
+
+        # set the edge nodes
+        self.edge_nodes = self.__set_edge_nodes()
+
+    def get_shortest_path(self, node_1, node_2):
+        # a shortest path algorithm
+        return
+
+    def get_center_node(self):
+        # node that has the longest paths to all the edges
+        return
 
     def __divide_regions(self, in_grid, threshold, r, c):
         grid = in_grid[r[0]:r[1], c[0]:c[1]]
