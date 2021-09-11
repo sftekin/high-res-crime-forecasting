@@ -2,13 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
-from descartes import PolygonPatch
 
-
-def plot_poly(in_poly, ax, face_color="b", edge_color="k", alpha=0.5):
-    patch = PolygonPatch(in_poly, fc=face_color, ec=edge_color, alpha=alpha)
-    ax.add_patch(patch)
-    return ax
+from graph.graph_helper import plot_poly
 
 
 def run():
