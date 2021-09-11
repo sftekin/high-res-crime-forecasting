@@ -146,89 +146,10 @@ def search_neighbours(in_grid, idx):
     return neighbours
 
 
-def graph_with_drc(in_graph, node_coords):
-    directions = ["right", "top", "left", "bot"]
-    direction_dict = {}
-    for node_name, neigh_list in in_graph.items():
-        direction_dict[node_name] = {drc: [] for drc in directions}
-        origin_coord = node_coords[node_name]
-        for n in neigh_list:
-            n_coord = node_coords[n]
-            drc_idx = calc_dir(origin_coord, n_coord)
-            direction_dict[node_name][directions[drc_idx]].append(n)
-
-        for drc, n_list in direction_dict[node_name].items():
-            if len(n_list) > 1:
-                direction_dict[node_name][drc] = order_nodes(node_name, n_list, node_coords)
-
-    return direction_dict
 
 
-def calc_dir(p1, p2):
-    angle = math.degrees(math.atan2(p2[1] - p1[1], p2[0] - p1[0]))
-    if angle < 0:
-        drc = np.array([0, 90, -180, -90])
-    else:
-        drc = np.array([0, 90, 180, 270])
-    diff = np.abs(angle - drc)
-    return np.argmin(diff)
 
 
-def order_nodes(center_node, neigh_nodes, node_coords):
-    dist = np.array([np.sum((node_coords[coord] - node_coords[center_node]) ** 2) for coord in neigh_nodes])
-    ordered = np.argsort(dist)
-    neigh_nodes = np.array(neigh_nodes)
-    return neigh_nodes[ordered]
-
-
-def place_neighbours(in_grid, in_graph, node_name, grid_idx, placed):
-    directions = get_directions(in_idx=grid_idx)
-
-    placed_nodes, contradictions = [], []
-    for drc_name, idx in directions.items():
-        if not check_exists(idx, in_grid.shape):
-            continue
-
-        if not np.isnan(in_grid[idx]) and placed[int(in_grid[idx])]:
-            continue
-
-        neigh_nodes = in_graph[node_name][drc_name]
-        if len(neigh_nodes) == 0:
-            continue
-
-        if not np.isnan(in_grid[idx]) and in_grid[idx] != neigh_nodes[0]:
-            contradictions.append(idx)
-        in_grid[idx] = neigh_nodes[0]  # think about this
-        placed_nodes.append((neigh_nodes[0], idx))
-
-    return placed_nodes, contradictions
-
-
-def get_directions(in_idx):
-    directions = {
-        "left": (in_idx[0], in_idx[1] - 1),
-        "right": (in_idx[0], in_idx[1] + 1),
-        "top": (in_idx[0] - 1, in_idx[1]),
-        "bot": (in_idx[0] + 1, in_idx[1])
-    }
-    return directions
-
-
-def check_exists(idx, in_shape):
-    x, y = in_shape
-    x_check = (0 <= idx[0]) & (idx[0] < x)
-    y_check = (0 <= idx[1]) & (idx[1] < y)
-    return x_check and y_check
-
-
-def inv_direction(direction):
-    inv_dir = {
-        "left": "right",
-        "right": "left",
-        "top": "bot",
-        "bot": "top",
-    }
-    return inv_dir[direction]
 
 
 if __name__ == '__main__':
