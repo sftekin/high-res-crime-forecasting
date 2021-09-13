@@ -14,7 +14,10 @@ class GraphMapper:
         self.grid[:] = np.nan
         self.grid[initial_grid_loc] = initial_node
 
-    def graph2grid(self, nodes, edges):
+    def graph2grid(self, graph):
+
+        self.calc_grid_size(graph)
+
         # categorize every neighbour of each node under 4 directions
         graph_drc = self.__graph_with_drc(nodes, edges)
 
@@ -103,6 +106,28 @@ class GraphMapper:
             placed_nodes.append((neigh_nodes[0], idx))
 
         return placed_nodes, contradictions
+
+    @staticmethod
+    def calc_grid_size(graph):
+        row_lines = []
+        col_lines = []
+        for r, c in graph.regions:
+            row_lines.append(r)
+            col_lines.append(c)
+
+        grid_size = []
+        for interval in [row_lines, col_lines]:
+            idx = np.argsort(np.array(interval)[:, 1])
+            interval = interval[idx]
+
+            intersect_counts = []
+            for i in range(len(interval)):
+                inter = (row_lines[:, 0] <= interval[i, 1]) & (interval[i, 1] <= row_lines[:, 1])
+                intersect_counts.append(np.sum(inter))
+
+            grid_size.append(np.max(intersect_counts))
+
+        return grid_size
 
     @staticmethod
     def calc_dir(p1, p2):

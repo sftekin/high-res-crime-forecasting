@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 
-from graph.graph_helper import plot_poly
+from graph_helper import plot_poly
 
 
 def run():
