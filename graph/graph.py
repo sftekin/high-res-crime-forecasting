@@ -1,8 +1,9 @@
+import os
 import itertools
 
 import numpy as np
 from shapely.geometry import Polygon, LineString
-from graph.graph_helper import plot_regions, plot_graph
+from graph_helper import plot_regions, plot_graph
 
 
 class Graph:
@@ -20,6 +21,9 @@ class Graph:
         self.coord_grid = None
         self.region_poly = None
         self.graph_built = False
+        self.distance_matrix = None
+        self.shortest_dist = None
+        self.center_node = None
         self.edge_nodes = {
             "top": [],
             "left": [],
@@ -48,11 +52,27 @@ class Graph:
         if plot:
             plot_graph(nodes=self.nodes, edges=self.edges)
 
+        # create distance
+        self.distance_matrix = self.__create_distance()
+
+        # shortest distance
+        print("calculating shortest distance")
+        if not os.path.exists('shartes_dist.npy'):
+            self.shortest_dist = self.__floyd_warshall()
+            with open('shortest_dist.npy', 'wb') as f:
+                np.save(f, self.shortest_dist)
+        else:
+            with open('shortest_dist.npy', 'rb') as f:
+                self.shortest_dist = np.load(f)
+
+        # calculate center node
+        self.center_node = self.__calc_center_node()
+
         # graph is built
         self.graph_built = True
 
         # set the edge nodes
-        self.edge_nodes = self.__set_edge_nodes()
+        # self.edge_nodes = self.__set_edge_nodes()
 
     def get_shortest_path(self, node_1, node_2):
         # a shortest path algorithm
@@ -103,6 +123,38 @@ class Graph:
 
         return polygons_list
 
+    def __create_distance(self):
+        n = len(self.nodes)
+        dist_matrix = np.eye(n)
+        dist_matrix[dist_matrix == 0] = np.inf
+        dist_matrix[dist_matrix == 1] = 0.
+        for i in range(n):
+            for neigh in self.edges[i]:
+                dist_matrix[i, neigh] = self._eu_distance(self.nodes[i], self.nodes[neigh])
+
+        return dist_matrix
+
+    def __floyd_warshall(self):
+        n = len(self.nodes)
+        dist = self.distance_matrix.copy()
+        for k in range(n):
+            for i in range(n):
+                for j in range(n):
+                    dist[i][j] = min(dist[i, j], dist[i, k] + dist[k, j])
+
+        return dist
+
+    def __calc_center_node(self):
+        n = len(self.nodes)
+        # Counting values of eccentricity
+        e = np.zeros(n)
+        for i in range(n):
+            for j in range(n):
+                e[i] = max(e[i], self.distance_matrix[i, j])
+        center_node = np.argmin(e)
+
+        return center_node
+
     @staticmethod
     def split_regions(in_grid, r, c):
         m, n = r[1] - r[0], c[1] - c[0]
@@ -146,6 +198,10 @@ class Graph:
 
         return intersectons
 
+    @staticmethod
+    def _eu_distance(p1, p2):
+        return np.sqrt(np.sum((p1 - p2) ** 2))
+
     # def __remove_node(self, v_id):
     #     n_nodes = self.edges[v_id][0]
     #     # remove prev node from lists of neighbours
@@ -159,6 +215,17 @@ class Graph:
     #     del self.nodes[v_id]
     #     del self.edges[v_id]
     #
-    # @staticmethod
-    # def _eu_distance(p1, p2):
-    #     return np.sqrt(np.sum((p1 - p2) ** 2))
+
+
+if __name__ == '__main__':
+    coord_range = [[41.60, 42.05], [-87.9, -87.5]]
+
+    with open("grid.npy", "rb") as f:
+        grid = np.load(f)
+        grid = np.squeeze(grid)
+    grid_sum = np.sum(grid, axis=0)
+
+    graph = Graph(grid=grid_sum, coord_range=coord_range)
+    graph.create(threshold=100, plot=True)
+
+

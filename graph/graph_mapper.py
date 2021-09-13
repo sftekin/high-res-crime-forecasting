@@ -147,5 +147,3 @@ class GraphMapper:
             "bot": "top",
         }
         return inv_dir[direction]
-
-
