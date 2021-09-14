@@ -51,22 +51,16 @@ class GraphMapper:
         return direction_dict
 
     def __fill_grid(self, graph_drc):
-        # keep track of placed nodes
-        node_count = len(graph_drc.keys())
-        placed = np.zeros(node_count, dtype=bool)
-
         # set the initials
-        placed[self.initial_node] = True
         placements = [(self.initial_node, (self.init_m, self.init_n))]
 
         contradictions = []
-        while not all(placed):
+        while np.isnan(self.grid).sum() > 0:
             new_placements = []
             for node_name, grid_idx in placements:
-                new_p, contr = self.__place_neighbours(graph_drc, node_name, grid_idx, placed)
+                new_p, contr = self.__place_neighbours(graph_drc, node_name, grid_idx)
                 new_placements += new_p
                 contradictions += contr
-                placed[node_name] = True
             placements = new_placements
 
         return contradictions
@@ -89,7 +83,7 @@ class GraphMapper:
             self.grid[idx] = selected_node
         print(self.grid)
 
-    def __place_neighbours(self, in_graph, node_name, grid_idx, placed):
+    def __place_neighbours(self, in_graph, node_name, grid_idx):
         directions = self.get_directions(in_idx=grid_idx)
 
         placed_nodes, contradictions = [], []
@@ -97,7 +91,7 @@ class GraphMapper:
             if not self.check_exists(idx, self.grid.shape):
                 continue
 
-            if not np.isnan(self.grid[idx]) and placed[int(self.grid[idx])]:
+            if not np.isnan(self.grid[idx]):
                 continue
 
             neigh_nodes = in_graph[node_name][drc_name]
@@ -110,6 +104,20 @@ class GraphMapper:
             placed_nodes.append((neigh_nodes[0], idx))
 
         return placed_nodes, contradictions
+
+    def continue_placing(self, placed, graph_drc):
+        new_p = []
+        not_placed_idx = np.squeeze(np.argwhere(~placed))
+        for idx in not_placed_idx:
+            for direction, neighbours in graph_drc[idx].items():
+                for n in neighbours:
+                    if placed[n] and n in self.grid:
+                        n_ind = np.argwhere(self.grid == n)[0]
+                        grid_idx = self.get_directions(n_ind)[direction]
+                        if self.grid[grid_idx] == np.nan:
+                            new_p.append((idx, grid_idx))
+
+        return new_p
 
     @staticmethod
     def calc_grid_size(graph):
