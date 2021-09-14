@@ -5,31 +5,35 @@ import numpy as np
 
 
 class GraphMapper:
-    def __init__(self, grid_size, initial_node, initial_grid_loc):
-        self.initial_node = initial_node
-        self.initial_grid_loc = initial_grid_loc
-        self.m, self.n = grid_size
+    def __init__(self, graph):
+        self.input_graph = graph
 
-        self.grid = np.zeros(grid_size)
+        # create initial params for mapping
+        self.m, self.n = self.calc_grid_size(graph)
+        self.initial_node = graph.center_node
+        self.init_m, self.init_n = self.calc_grid_center(grid_size=(self.m, self.n))
+
+        # create the grid to be mapped
+        self.grid = np.zeros((self.m, self.n))
         self.grid[:] = np.nan
-        self.grid[initial_grid_loc] = initial_node
+        self.grid[self.init_m, self.init_n] = self.initial_node
 
-    def graph2grid(self, graph):
-
-        self.calc_grid_size(graph)
-
+    def map(self):
         # categorize every neighbour of each node under 4 directions
-        graph_drc = self.__graph_with_drc(nodes, edges)
+        graph_drc = self.__graph_with_drc()
 
         # fill the grid
         contradicts = self.__fill_grid(graph_drc)
+        with open('downsampled_grid.npy', 'wb') as f:
+            np.save(f, self.grid)
 
         # handle contradictions
         self.__solve_contradicts(contradicts, graph_drc)
 
         return self.grid
 
-    def __graph_with_drc(self, nodes, edges):
+    def __graph_with_drc(self):
+        nodes, edges = self.input_graph.nodes, self.input_graph.edges
         directions = ["right", "top", "left", "bot"]
         direction_dict = {}
         for node_name, neigh_list in edges.items():
@@ -53,7 +57,7 @@ class GraphMapper:
 
         # set the initials
         placed[self.initial_node] = True
-        placements = [(self.initial_node, self.initial_grid_loc)]
+        placements = [(self.initial_node, (self.init_m, self.init_n))]
 
         contradictions = []
         while not all(placed):
@@ -109,25 +113,31 @@ class GraphMapper:
 
     @staticmethod
     def calc_grid_size(graph):
-        row_lines = []
-        col_lines = []
-        for r, c in graph.regions:
-            row_lines.append(r)
-            col_lines.append(c)
+        regions_array = np.array(graph.regions)
+        row_lines = regions_array[:, 0, :]
+        col_lines = regions_array[:, 1, :]
 
         grid_size = []
-        for interval in [row_lines, col_lines]:
-            idx = np.argsort(np.array(interval)[:, 1])
-            interval = interval[idx]
-
-            intersect_counts = []
+        for interval in [col_lines, row_lines]:
+            int_array = np.zeros(np.max(interval), dtype=int)
             for i in range(len(interval)):
-                inter = (row_lines[:, 0] <= interval[i, 1]) & (interval[i, 1] <= row_lines[:, 1])
-                intersect_counts.append(np.sum(inter))
+                int_array[interval[i, 0]:interval[i, 1]] += 1
 
-            grid_size.append(np.max(intersect_counts))
+            grid_size.append(np.max(int_array))
 
         return grid_size
+
+    @staticmethod
+    def calc_grid_center(grid_size):
+        dims = []
+        for dim in grid_size:
+            if dim % 2 == 0:
+                center_idx = dim // 2
+            else:
+                center_idx = dim // 2 + 1
+            dims.append(center_idx)
+
+        return dims
 
     @staticmethod
     def calc_dir(p1, p2):
@@ -172,3 +182,33 @@ class GraphMapper:
             "bot": "top",
         }
         return inv_dir[direction]
+
+    @staticmethod
+    def plot_intervals(interval_unique):
+        import matplotlib.collections
+        import matplotlib.pyplot as plt
+        lines = []
+        for i in range(len(interval_unique)):
+            p1 = np.array([interval_unique[i, 0], i])
+            p2 = np.array([interval_unique[i, 1], i])
+            lines.append([p1, p2])
+
+        lc = matplotlib.collections.LineCollection(lines, colors='k', linewidths=1)
+
+        fig, ax = plt.subplots(figsize=(10, 15))
+        ax.add_collection(lc)
+        ax.set_xlim(0, np.max(interval_unique))
+        ax.set_ylim(0, len(lines))
+        plt.show()
+
+
+if __name__ == '__main__':
+    import pickle as pkl
+    from graph import Graph
+    with open("graph.pkl", "rb") as f:
+        graph = pkl.load(f)
+
+    graph_mapper = GraphMapper(graph)
+    grid = graph_mapper.map()
+
+

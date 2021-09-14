@@ -24,12 +24,6 @@ class Graph:
         self.distance_matrix = None
         self.shortest_dist = None
         self.center_node = None
-        self.edge_nodes = {
-            "top": [],
-            "left": [],
-            "right": [],
-            "bot": []
-        }
 
     def create(self, threshold, plot=False):
         # divide grid into regions (rectangles) according to threshold value
@@ -57,7 +51,7 @@ class Graph:
 
         # shortest distance
         print("calculating shortest distance")
-        if not os.path.exists('shartes_dist.npy'):
+        if not os.path.exists('shortest_dist.npy'):
             self.shortest_dist = self.__floyd_warshall()
             with open('shortest_dist.npy', 'wb') as f:
                 np.save(f, self.shortest_dist)
@@ -70,9 +64,6 @@ class Graph:
 
         # graph is built
         self.graph_built = True
-
-        # set the edge nodes
-        # self.edge_nodes = self.__set_edge_nodes()
 
     def get_shortest_path(self, node_1, node_2):
         # a shortest path algorithm
@@ -150,7 +141,7 @@ class Graph:
         e = np.zeros(n)
         for i in range(n):
             for j in range(n):
-                e[i] = max(e[i], self.distance_matrix[i, j])
+                e[i] = max(e[i], self.shortest_dist[i, j])
         center_node = np.argmin(e)
 
         return center_node
@@ -202,20 +193,6 @@ class Graph:
     def _eu_distance(p1, p2):
         return np.sqrt(np.sum((p1 - p2) ** 2))
 
-    # def __remove_node(self, v_id):
-    #     n_nodes = self.edges[v_id][0]
-    #     # remove prev node from lists of neighbours
-    #     for n in n_nodes:
-    #         neigh, dists = self.edges[n]
-    #         if v_id in neigh:
-    #             idx = neigh.index(v_id)
-    #             neigh.remove(v_id)
-    #             self.edges[n][1] = np.delete(dists, idx)
-    #
-    #     del self.nodes[v_id]
-    #     del self.edges[v_id]
-    #
-
 
 if __name__ == '__main__':
     coord_range = [[41.60, 42.05], [-87.9, -87.5]]
@@ -228,4 +205,6 @@ if __name__ == '__main__':
     graph = Graph(grid=grid_sum, coord_range=coord_range)
     graph.create(threshold=100, plot=True)
 
-
+    import pickle as pkl
+    with open("graph.pkl", "wb") as f:
+        pkl.dump(graph, f)
