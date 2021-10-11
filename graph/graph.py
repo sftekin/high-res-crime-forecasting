@@ -3,7 +3,7 @@ import itertools
 
 import numpy as np
 from shapely.geometry import Polygon, LineString
-from graph_helper import plot_regions, plot_graph
+from graph.graph_helper import plot_regions, plot_graph
 
 
 class Graph:
@@ -21,9 +21,6 @@ class Graph:
         self.coord_grid = None
         self.region_poly = None
         self.graph_built = False
-        self.distance_matrix = None
-        self.shortest_dist = None
-        self.center_node = None
 
     def create(self, threshold, plot=False):
         # divide grid into regions (rectangles) according to threshold value
@@ -46,32 +43,8 @@ class Graph:
         if plot:
             plot_graph(nodes=self.nodes, edges=self.edges)
 
-        # create distance
-        self.distance_matrix = self.__create_distance()
-
-        # shortest distance
-        print("calculating shortest distance")
-        if not os.path.exists('shortest_dist.npy'):
-            self.shortest_dist = self.__floyd_warshall()
-            with open('shortest_dist.npy', 'wb') as f:
-                np.save(f, self.shortest_dist)
-        else:
-            with open('shortest_dist.npy', 'rb') as f:
-                self.shortest_dist = np.load(f)
-
-        # calculate center node
-        self.center_node = self.__calc_center_node()
-
         # graph is built
         self.graph_built = True
-
-    def get_shortest_path(self, node_1, node_2):
-        # a shortest path algorithm
-        return
-
-    def get_center_node(self):
-        # node that has the longest paths to all the edges
-        return
 
     def __divide_regions(self, in_grid, threshold, r, c):
         grid = in_grid[r[0]:r[1], c[0]:c[1]]
@@ -113,38 +86,6 @@ class Graph:
             polygons_list.append(polygon)
 
         return polygons_list
-
-    def __create_distance(self):
-        n = len(self.nodes)
-        dist_matrix = np.eye(n)
-        dist_matrix[dist_matrix == 0] = np.inf
-        dist_matrix[dist_matrix == 1] = 0.
-        for i in range(n):
-            for neigh in self.edges[i]:
-                dist_matrix[i, neigh] = self._eu_distance(self.nodes[i], self.nodes[neigh])
-
-        return dist_matrix
-
-    def __floyd_warshall(self):
-        n = len(self.nodes)
-        dist = self.distance_matrix.copy()
-        for k in range(n):
-            for i in range(n):
-                for j in range(n):
-                    dist[i][j] = min(dist[i, j], dist[i, k] + dist[k, j])
-
-        return dist
-
-    def __calc_center_node(self):
-        n = len(self.nodes)
-        # Counting values of eccentricity
-        e = np.zeros(n)
-        for i in range(n):
-            for j in range(n):
-                e[i] = max(e[i], self.shortest_dist[i, j])
-        center_node = np.argmin(e)
-
-        return center_node
 
     @staticmethod
     def split_regions(in_grid, r, c):
