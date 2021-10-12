@@ -13,8 +13,8 @@ class GraphCreator(DataCreator):
 
         self.regions = None
         self.polygons = None
-        self.nodes = None
-        self.edges = None
+        self.node_features = None
+        self.edge_idx = None
 
     def create(self):
         crime_df = super().create()
@@ -34,23 +34,28 @@ class GraphCreator(DataCreator):
         if self.plot:
             plot_graph(nodes=nodes, edges=edges)
 
-        self.regions = regions
+        self.edge_idx = self.create_edge_idx(edges)
         self.polygons = polygons
-        self.nodes = nodes
-        self.edges = edges
 
-    def create_node_features(self):
-        pass
+    def create_node_features(self, crime_df, nodes, regions):
+        for n in range(len(nodes)):
+            lt, ln = regions[n]
 
-    def create_edge_idx(self):
-        pass
+    @staticmethod
+    def create_edge_idx(edges):
+        edge_index = []
+        for node_id, neighs in edges.items():
+            for n in neighs:
+                edge_index.append([node_id, n])
+        edge_index = np.array(edge_index)
+        return edge_index
 
     def create_y(self):
         pass
 
     def __divide_into_regions(self, crime_df, lat_range, lon_range, threshold):
         cor_df = crime_df[["Latitude", "Longitude"]]
-        region_count = self.get_count(cor_df, lat_range, lon_range)
+        region_count = len(self.get_in_range(cor_df, lat_range, lon_range))
 
         if region_count <= threshold:
             return [[lat_range, lon_range]]
@@ -63,11 +68,11 @@ class GraphCreator(DataCreator):
             return regions
 
     @staticmethod
-    def get_count(cor_df, lt, ln):
+    def get_in_range(cor_df, lt, ln):
         lat_idx = (lt[0] < cor_df["Latitude"]) & (cor_df["Latitude"] <= lt[1])
         lon_idx = (ln[0] < cor_df["Longitude"]) & (cor_df["Longitude"] <= ln[1])
-        event_count = len(cor_df[lat_idx & lon_idx])
-        return event_count
+        in_range_df = cor_df[lat_idx & lon_idx]
+        return in_range_df
 
     @staticmethod
     def divide4(lt, ln):
