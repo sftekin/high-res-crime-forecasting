@@ -14,18 +14,13 @@ class DataCreator:
 
         # spatial settings
         self.coord_range = data_params["coord_range"]  # [[41.60, 42.05], [-87.9, -87.5]]  # Lat-Lon
-        self.m, self.n = data_params["spatial_res"]
 
         # temporal settings
         self.temp_res = data_params["temporal_res"]
         self.start_date, self.end_date = data_params["time_range"]
         self.date_r = pd.date_range(start=self.start_date, end=self.end_date, freq=f'{self.temp_res}H')
 
-        self.save_dir = os.path.join(self.temp_dir, f"data_dump_{self.temp_res}_{self.m}_{self.n}")
-
-        # create the data_dump directory
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
+        self.data_columns = None
 
     def create(self):
         crime_df = pd.read_csv(self.__data_path)
@@ -59,6 +54,7 @@ class DataCreator:
         # Take top 10 crimes
         top10crime_types = list(crime_df["Primary Type"].value_counts()[:10].index)
         crime_df = crime_df[crime_df["Primary Type"].isin(top10crime_types)]
+        crime_df["Primary Type"] = crime_df.loc["Primary Type"].cat.remove_unused_categories()
 
         return crime_df
 
@@ -71,8 +67,7 @@ class DataCreator:
 
         return crime_df
 
-    @staticmethod
-    def _perform_dummies(crime_df):
+    def _perform_dummies(self, crime_df):
         crime_df = crime_df[["Primary Type", "Description", "Location Description",
                              "Arrest", "Domestic", "District", "Latitude", "Longitude"]]
         crime_df = crime_df.dropna()
@@ -81,7 +76,10 @@ class DataCreator:
         categorical = ["Primary Type", "Description", "Location Description"]
         for category in categorical:
             c_df = pd.get_dummies(crime_df[category], dtype=float)
-            c_df.columns = [f"{category}_{i}" for i in range(len(c_df.columns))]
+            if category == "Primary Type":
+                self.data_columns = c_df.columns
+            else:
+                c_df.columns = [f"{category}_{i}" for i in range(len(c_df.columns))]
             df_list.append(c_df)
         cat_df = pd.concat(df_list, axis=1)
         crime_df = crime_df.drop(columns=categorical)

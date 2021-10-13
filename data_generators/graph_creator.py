@@ -5,6 +5,7 @@ import itertools
 from data_generators.data_creator import DataCreator
 from shapely.geometry import Polygon, LineString
 from helpers.graph_helper import plot_regions, plot_graph
+from helpers.plot_helper import plot_hist_dist
 
 
 class GraphCreator(DataCreator):

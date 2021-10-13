@@ -13,13 +13,19 @@ from data_generators.data_creator import DataCreator
 class GridCreator(DataCreator):
     def __init__(self, data_params, grid_params):
         super(GridCreator, self).__init__(data_params)
+        self.m, self.n = grid_params["spatial_res"]
+
+        # create the data_dump directory
+        self.save_dir = os.path.join(self.temp_dir, f"data_dump_{self.temp_res}_{self.m}_{self.n}")
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
 
     def create(self):
         crime_df = super().create()
 
         crime_types = self.data_columns
         for i in range(len(crime_types)):
-            in_df = crime_df[crime_df["Primary Type"] == crime_types[i]]
+            in_df = crime_df[crime_df[crime_types[i]] == 1]
             print(crime_types[i])
             grid = self._convert_grid(in_df=in_df)
             if self.plot:
@@ -30,7 +36,7 @@ class GridCreator(DataCreator):
 
         print(f"Data Creation finished, data saved under {self.save_dir}")
 
-    def _convert_grid(self, in_df):
+    def _convert_grid(self, in_df, mode=""):
         x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n + 1)
         y_ticks = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m + 1)
 
@@ -48,7 +54,7 @@ class GridCreator(DataCreator):
         # save each time frame in temp directory
         for t in range(time_len):
             grid_t = grid[t]
-            save_path = os.path.join(self.save_dir, f"{t}.npy")
+            save_path = os.path.join(self.save_dir, f"{mode}{t}.npy")
             if os.path.exists(save_path):
                 with open(save_path, "rb") as f:
                     saved_arr = np.load(f)
