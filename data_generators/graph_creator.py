@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 import itertools
 from data_generators.data_creator import DataCreator
@@ -10,11 +11,12 @@ class GraphCreator(DataCreator):
     def __init__(self, data_params, graph_params):
         super(GraphCreator, self).__init__(data_params)
         self.threshold = graph_params["event_threshold"]
+        self.include_side_info = graph_params["include_side_info"]
 
         self.regions = None
-        self.polygons = None
         self.node_features = None
         self.edge_idx = None
+        self.labels = None
 
     def create(self):
         crime_df = super().create()
@@ -35,11 +37,34 @@ class GraphCreator(DataCreator):
             plot_graph(nodes=nodes, edges=edges)
 
         self.edge_idx = self.create_edge_idx(edges)
-        self.polygons = polygons
+        self.node_features = self.create_node_features(crime_df, nodes, regions)
+        self.labels = self.create_labels()
 
     def create_node_features(self, crime_df, nodes, regions):
+        time_len, num_nodes = len(self.date_r), len(nodes)
+        if self.include_side_info:
+            num_feats = crime_df.shape[1] + 1  # categorical features + event_count + node_location
+        else:
+            num_feats = 3  # event count + node_location
+
+        node_features = np.zeros((time_len, num_nodes, num_feats))
         for n in range(len(nodes)):
             lt, ln = regions[n]
+            region_df = self.get_in_range(crime_df, lt, ln)
+            node_features[:, n, :2] = nodes[n]  # first 2 features are the location of node
+            if not region_df.empty:
+                event_count = region_df.resample(f"{self.temp_res}H").size().reindex(self.date_r, fill_value=0)
+                node_features[:, n, 2] = event_count.values  # third feature is the event count
+                if self.include_side_info:
+                    cat_df = region_df.resample(f"{self.temp_res}H").mean().reindex(self.date_r, fill_value=0)
+                    cat_df = cat_df.fillna(0)
+                    cat_df = cat_df.drop(columns=["Latitude", "Longitude"])
+                    node_features[:, n, 3:] = cat_df.values
+
+        return node_features
+
+    def create_labels(self):
+        pass
 
     @staticmethod
     def create_edge_idx(edges):
@@ -103,5 +128,4 @@ class GraphCreator(DataCreator):
                 if polygons_list[i].intersects(polygons_list[j]) and \
                         isinstance(polygons_list[i].intersection(polygons_list[j]), LineString):
                     intersectons[i].append(j)
-
         return intersectons

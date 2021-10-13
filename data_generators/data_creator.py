@@ -22,7 +22,6 @@ class DataCreator:
         self.date_r = pd.date_range(start=self.start_date, end=self.end_date, freq=f'{self.temp_res}H')
 
         self.save_dir = os.path.join(self.temp_dir, f"data_dump_{self.temp_res}_{self.m}_{self.n}")
-        self.data_columns = None
 
         # create the data_dump directory
         if not os.path.exists(self.save_dir):
@@ -32,9 +31,7 @@ class DataCreator:
         crime_df = pd.read_csv(self.__data_path)
         crime_df = self._preprocess(crime_df)
         crime_df = self._crop_spatial(crime_df)
-
-        crime_types = list(crime_df["Primary Type"].unique())
-        self.data_columns = crime_types
+        crime_df = self._perform_dummies(crime_df)
 
         return crime_df
 
@@ -74,3 +71,23 @@ class DataCreator:
 
         return crime_df
 
+    @staticmethod
+    def _perform_dummies(crime_df):
+        crime_df = crime_df[["Primary Type", "Description", "Location Description",
+                             "Arrest", "Domestic", "District", "Latitude", "Longitude"]]
+        crime_df = crime_df.dropna()
+
+        df_list = []
+        categorical = ["Primary Type", "Description", "Location Description"]
+        for category in categorical:
+            c_df = pd.get_dummies(crime_df[category], dtype=float)
+            c_df.columns = [f"{category}_{i}" for i in range(len(c_df.columns))]
+            df_list.append(c_df)
+        cat_df = pd.concat(df_list, axis=1)
+        crime_df = crime_df.drop(columns=categorical)
+        crime_df = pd.concat([crime_df, cat_df], axis=1)
+
+        crime_df["Arrest"] = crime_df["Arrest"].astype(float)
+        crime_df["Domestic"] = crime_df["Domestic"].astype(float)
+
+        return crime_df

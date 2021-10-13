@@ -12,5 +12,6 @@ class Config:
         }
 
         self.graph_params = {
-            "event_threshold": 5000
+            "event_threshold": 5000,
+            "include_side_info": False,
         }
