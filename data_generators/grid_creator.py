@@ -8,6 +8,7 @@ import matplotlib.colors as colors
 import matplotlib.cm as cm
 
 from data_generators.data_creator import DataCreator
+from helpers.plot_helper import plot_hist_dist
 
 
 class GridCreator(DataCreator):
@@ -29,10 +30,17 @@ class GridCreator(DataCreator):
             print(crime_types[i])
             grid = self._convert_grid(in_df=in_df)
             if self.plot:
-                grid = np.squeeze(grid)
-                self._plot_2d(grid, crime_types[i])
-                self._plot_3d(in_grid=grid, title=crime_types[i])
-                self._plot_3d_bar(grid, title=crime_types[i])
+                self._plot_surf(grid, title=crime_types[i])
+
+        grid = self._convert_grid(crime_df, mode="all")
+        if self.plot:
+            self._plot_surf(grid, title="All")
+            flatten_grid = np.sum(grid, axis=0).flatten()
+            zero_ratio = sum(flatten_grid == 0) / len(flatten_grid) * 100
+            save_path = os.path.join(self.figures_dir, "all_hist.png")
+            plot_hist_dist(flatten_grid, x_label="Total Event per Cell",
+                           title=f"Zero Ratio {zero_ratio:.2f}",
+                           save_path=save_path)
 
         print(f"Data Creation finished, data saved under {self.save_dir}")
 
@@ -164,3 +172,9 @@ class GridCreator(DataCreator):
         ax.grid(True)
 
         return ax
+
+    def _plot_surf(self, grid, title):
+        grid = np.squeeze(grid)
+        self._plot_2d(grid, title=title)
+        self._plot_3d(in_grid=grid, title=title)
+        self._plot_3d_bar(grid, title=title)

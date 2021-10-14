@@ -7,7 +7,7 @@ class Config:
             "coord_range": [[41.60, 42.05], [-87.9, -87.5]],
             "temporal_res": 24,
             "time_range": ("2015-01-01", "2019-11-01"),
-            "plot": False
+            "plot": True
         }
 
         self.graph_params = {

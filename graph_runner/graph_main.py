@@ -1,5 +1,4 @@
-
-from graph_runner.config import Config
+from config import Config
 from data_generators.graph_creator import GraphCreator
 
 

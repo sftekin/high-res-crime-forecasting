@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -40,6 +42,14 @@ class GraphCreator(DataCreator):
         self.edge_idx = self.create_edge_idx(edges)
         self.node_features = self.create_node_features(crime_df, nodes, regions)
         self.labels = self.create_labels()
+
+        if self.plot:
+            node_sum = np.sum(self.node_features[:, :, 0], axis=0)
+            zero_ratio = sum(node_sum == 0) / len(node_sum) * 100
+            save_path = os.path.join(self.figures_dir, "nodes_hist.png")
+            plot_hist_dist(node_sum, x_label="Total Event per Node",
+                           title=f"Zero Ratio {zero_ratio:.2f}",
+                           save_path=save_path)
 
     def create_node_features(self, crime_df, nodes, regions):
         time_len, num_nodes = len(self.date_r), len(nodes)

@@ -54,9 +54,12 @@ class DataCreator:
         # Take top 10 crimes
         top10crime_types = list(crime_df["Primary Type"].value_counts()[:10].index)
         crime_df = crime_df[crime_df["Primary Type"].isin(top10crime_types)]
-        crime_df["Primary Type"] = crime_df.loc["Primary Type"].cat.remove_unused_categories()
 
-        return crime_df
+        # remove unused categories
+        crime_df_copy = crime_df.copy()
+        crime_df_copy["Primary Type"] = crime_df.loc[:, "Primary Type"].cat.remove_unused_categories()
+
+        return crime_df_copy
 
     def _crop_spatial(self, crime_df):
         lat_idx = (self.coord_range[0][0] <= crime_df["Latitude"]) & \
