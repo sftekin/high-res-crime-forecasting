@@ -41,7 +41,7 @@ class GraphCreator(DataCreator):
 
         self.edge_idx = self.create_edge_idx(edges)
         self.node_features = self.create_node_features(crime_df, nodes, regions)
-        self.labels = self.create_labels()
+        self.labels = self.create_labels(crime_df)
 
         if self.plot:
             node_sum = np.sum(self.node_features[:, :, 0], axis=0)
@@ -74,8 +74,26 @@ class GraphCreator(DataCreator):
 
         return node_features
 
-    def create_labels(self):
-        pass
+    def create_labels(self, crime_df):
+        num_nodes = self.node_features.shape[1]
+        labels = []  # T, locs, regions
+        for t in self.date_r:
+            t_1 = t + pd.DateOffset(hours=self.temp_res)
+            cropped_df = crime_df.loc[(t <= crime_df.index) & (crime_df.index < t_1)]
+            if not cropped_df.empty:
+                locs = cropped_df[["Latitude", "Longitude"]].values
+                node_contains = []
+                for loc in locs:
+                    for i in range(num_nodes):
+                        if self.regions[i].contains(loc):
+                            node_contains.append(i)
+                node_contains = np.array(node_contains)
+                label_arr = np.concatenate([locs, node_contains], axis=1)
+            else:
+                label_arr = []
+            labels.append(label_arr)
+
+        return labels
 
     @staticmethod
     def create_edge_idx(edges):
