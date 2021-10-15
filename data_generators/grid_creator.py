@@ -17,7 +17,7 @@ class GridCreator(DataCreator):
         self.m, self.n = grid_params["spatial_res"]
 
         # create the data_dump directory
-        self.save_dir = os.path.join(self.temp_dir, f"data_dump_{self.temp_res}_{self.m}_{self.n}")
+        self.save_dir = os.path.join(self.temp_dir, "grid", f"data_dump_{self.temp_res}_{self.m}_{self.n}")
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
 

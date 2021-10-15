@@ -1,11 +1,12 @@
 import os
+import pickle as pkl
 
 import numpy as np
 import pandas as pd
 
 import itertools
 from data_generators.data_creator import DataCreator
-from shapely.geometry import Polygon, LineString, Point
+from shapely.geometry import Polygon, LineString
 from helpers.graph_helper import plot_regions, plot_graph
 from helpers.plot_helper import plot_hist_dist
 from concurrent.futures import ThreadPoolExecutor
@@ -18,8 +19,13 @@ class GraphCreator(DataCreator):
         self.include_side_info = graph_params["include_side_info"]
 
         self.node_features = None
-        self.edge_idx = None
+        self.edge_index = None
         self.labels = None
+
+        # create the data_dump directory
+        self.save_dir = os.path.join(self.temp_dir, "graph", f"data_dump_{self.temp_res}_{self.threshold}")
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
 
     def create(self):
         crime_df = super().create()
@@ -27,31 +33,47 @@ class GraphCreator(DataCreator):
                                              lat_range=self.coord_range[0],
                                              lon_range=self.coord_range[1],
                                              threshold=self.threshold)
-        polygons = self.region2polygon(regions)
-        if self.plot:
-            plot_regions(polygons, coord_range=self.coord_range)
-
         # create nodes
+        polygons = self.region2polygon(regions)
         nodes = np.concatenate([poly.centroid.coords.xy for poly in polygons], axis=1).T
 
         # create edges
         edges = self.get_intersections(polygons)
+
+        # crea
+        self.edge_index = self.create_edge_index(edges)
+        self.node_features = self.__create_node_features(crime_df, nodes, regions)
+        self.labels = self.__create_labels(crime_df, nodes)
+
         if self.plot:
+            plot_regions(polygons, coord_range=self.coord_range)
             plot_graph(nodes=nodes, edges=edges)
-
-        self.edge_idx = self.create_edge_idx(edges)
-        self.node_features = self.create_node_features(crime_df, nodes, regions)
-        self.labels = self.create_labels(crime_df, nodes)
-
-        if self.plot:
-            node_sum = np.sum(self.node_features[:, :, 0], axis=0)
+            node_sum = np.sum(self.node_features[:, :, -1], axis=0)
             zero_ratio = sum(node_sum == 0) / len(node_sum) * 100
             save_path = os.path.join(self.figures_dir, "nodes_hist.png")
             plot_hist_dist(node_sum, x_label="Total Event per Node",
                            title=f"Zero Ratio {zero_ratio:.2f}",
                            save_path=save_path)
 
-    def create_node_features(self, crime_df, nodes, regions):
+        # save created data
+        self.__save_data()
+        print(f"Data Creation finished, data saved under {self.save_dir}")
+
+    def __divide_into_regions(self, crime_df, lat_range, lon_range, threshold):
+        cor_df = crime_df[["Latitude", "Longitude"]]
+        region_count = len(self.get_in_range(cor_df, lat_range, lon_range))
+
+        if region_count <= threshold:
+            return [[lat_range, lon_range]]
+        else:
+            new_lats, new_lons = self.divide4(lat_range, lon_range)
+            regions = []
+            for lt_range, ln_range in itertools.product(new_lats, new_lons):
+                region = self.__divide_into_regions(crime_df, lt_range, ln_range, threshold)
+                regions += region
+            return regions
+
+    def __create_node_features(self, crime_df, nodes, regions):
         time_len, num_nodes = len(self.date_r), len(nodes)
         if self.include_side_info:
             num_feats = crime_df.shape[1] + 1  # categorical features + event_count + node_location
@@ -74,16 +96,16 @@ class GraphCreator(DataCreator):
 
         return node_features
 
-    def create_labels(self, crime_df, nodes):
+    def __create_labels(self, crime_df, nodes):
         arg_list = []
         for t in self.date_r:
             arg_list.append((crime_df, t, nodes))
         with ThreadPoolExecutor(max_workers=self.num_process) as executor:
-            labels = executor.map(lambda p: self.match_event_node(*p), arg_list)
+            labels = executor.map(lambda p: self.__match_event_node(*p), arg_list)
             labels = list(labels)
         return labels
 
-    def match_event_node(self, crime_df, t, nodes):
+    def __match_event_node(self, crime_df, t, nodes):
         label_arr = []
         t_1 = t + pd.DateOffset(hours=self.temp_res)
         cropped_df = crime_df.loc[(t <= crime_df.index) & (crime_df.index < t_1)]
@@ -94,31 +116,24 @@ class GraphCreator(DataCreator):
             label_arr = np.concatenate([locs, node_contains], axis=1)
         return label_arr
 
+    def __save_data(self):
+        edge_index_path = os.path.join(self.save_dir, "edge_index.pkl")
+        node_features_path = os.path.join(self.save_dir, "node_features.pkl")
+        labels_path = os.path.join(self.save_dir, "labels.pkl")
+        paths = [edge_index_path, node_features_path, labels_path]
+        items = [self.edge_index, self.node_features, self.labels]
+        for path, item in zip(paths, items):
+            with open(path, "wb") as f:
+                pkl.dump(item, f)
+
     @staticmethod
-    def create_edge_idx(edges):
+    def create_edge_index(edges):
         edge_index = []
         for node_id, neighs in edges.items():
             for n in neighs:
                 edge_index.append([node_id, n])
-        edge_index = np.array(edge_index)
+        edge_index = np.array(edge_index).T
         return edge_index
-
-    def create_y(self):
-        pass
-
-    def __divide_into_regions(self, crime_df, lat_range, lon_range, threshold):
-        cor_df = crime_df[["Latitude", "Longitude"]]
-        region_count = len(self.get_in_range(cor_df, lat_range, lon_range))
-
-        if region_count <= threshold:
-            return [[lat_range, lon_range]]
-        else:
-            new_lats, new_lons = self.divide4(lat_range, lon_range)
-            regions = []
-            for lt_range, ln_range in itertools.product(new_lats, new_lons):
-                region = self.__divide_into_regions(crime_df, lt_range, ln_range, threshold)
-                regions += region
-            return regions
 
     @staticmethod
     def get_in_range(cor_df, lt, ln):
