@@ -21,6 +21,7 @@ class DataCreator:
         self.date_r = pd.date_range(start=self.start_date, end=self.end_date, freq=f'{self.temp_res}H')
 
         self.data_columns = None
+        self.num_process = 8
 
     def create(self):
         crime_df = pd.read_csv(self.__data_path)

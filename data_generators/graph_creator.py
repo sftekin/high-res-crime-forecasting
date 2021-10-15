@@ -5,9 +5,10 @@ import pandas as pd
 
 import itertools
 from data_generators.data_creator import DataCreator
-from shapely.geometry import Polygon, LineString
+from shapely.geometry import Polygon, LineString, Point
 from helpers.graph_helper import plot_regions, plot_graph
 from helpers.plot_helper import plot_hist_dist
+from concurrent.futures import ThreadPoolExecutor
 
 
 class GraphCreator(DataCreator):
@@ -16,7 +17,6 @@ class GraphCreator(DataCreator):
         self.threshold = graph_params["event_threshold"]
         self.include_side_info = graph_params["include_side_info"]
 
-        self.regions = None
         self.node_features = None
         self.edge_idx = None
         self.labels = None
@@ -41,7 +41,7 @@ class GraphCreator(DataCreator):
 
         self.edge_idx = self.create_edge_idx(edges)
         self.node_features = self.create_node_features(crime_df, nodes, regions)
-        self.labels = self.create_labels(crime_df)
+        self.labels = self.create_labels(crime_df, nodes)
 
         if self.plot:
             node_sum = np.sum(self.node_features[:, :, 0], axis=0)
@@ -74,26 +74,25 @@ class GraphCreator(DataCreator):
 
         return node_features
 
-    def create_labels(self, crime_df):
-        num_nodes = self.node_features.shape[1]
-        labels = []  # T, locs, regions
+    def create_labels(self, crime_df, nodes):
+        arg_list = []
         for t in self.date_r:
-            t_1 = t + pd.DateOffset(hours=self.temp_res)
-            cropped_df = crime_df.loc[(t <= crime_df.index) & (crime_df.index < t_1)]
-            if not cropped_df.empty:
-                locs = cropped_df[["Latitude", "Longitude"]].values
-                node_contains = []
-                for loc in locs:
-                    for i in range(num_nodes):
-                        if self.regions[i].contains(loc):
-                            node_contains.append(i)
-                node_contains = np.array(node_contains)
-                label_arr = np.concatenate([locs, node_contains], axis=1)
-            else:
-                label_arr = []
-            labels.append(label_arr)
-
+            arg_list.append((crime_df, t, nodes))
+        with ThreadPoolExecutor(max_workers=self.num_process) as executor:
+            labels = executor.map(lambda p: self.match_event_node(*p), arg_list)
+            labels = list(labels)
         return labels
+
+    def match_event_node(self, crime_df, t, nodes):
+        label_arr = []
+        t_1 = t + pd.DateOffset(hours=self.temp_res)
+        cropped_df = crime_df.loc[(t <= crime_df.index) & (crime_df.index < t_1)]
+        if not cropped_df.empty:
+            locs = cropped_df[["Longitude", "Latitude"]].values
+            dist_mat = self.calculate_distances(locs, nodes, self.num_process)
+            node_contains = np.argmin(dist_mat, axis=1).reshape(-1, 1)
+            label_arr = np.concatenate([locs, node_contains], axis=1)
+        return label_arr
 
     @staticmethod
     def create_edge_idx(edges):
@@ -158,3 +157,34 @@ class GraphCreator(DataCreator):
                         isinstance(polygons_list[i].intersection(polygons_list[j]), LineString):
                     intersectons[i].append(j)
         return intersectons
+
+    @staticmethod
+    def calculate_distances(unk_locs, knw_locs, num_processes):
+        """
+        Calculates distance matrix.
+
+        :param np.ndarray unk_locs: (N, 2)
+        :param np.ndarray knw_locs: (M, 2)
+        :param int num_processes:
+        :return: distance matrix (M, N)
+        :rtype: np.ndarray
+        """
+
+        def l2_dist(x, y):
+            """
+            calculates distance between vector and point as elementwise
+
+            :param np.ndarray x: (2,)
+            :param np.ndarray y: (N, 2)
+            :return: distance vector (N,2)
+            :rtype: np.ndarray
+            """
+            d = np.sum((y - x) ** 2, axis=1)
+            return d
+
+        num_unk_points = unk_locs.shape[0]
+        arg_list = [(unk_locs[i], knw_locs) for i in range(num_unk_points)]
+        with ThreadPoolExecutor(max_workers=num_processes) as executor:
+            D = executor.map(lambda p: l2_dist(*p), arg_list)
+            D = np.stack(list(D), axis=0)
+        return D
