@@ -18,3 +18,14 @@ class Config:
         self.grid_params = {
             "spatial_res": (100, 66)
         }
+
+        self.batch_gen_params = {
+            "graph": {
+                "test_size": 266,
+                "val_ratio": 0.20,
+                "window_in_len": 10,
+                "window_out_len": 1,
+                "batch_size": 5,
+                "shuffle": False,
+            }
+        }

@@ -27,6 +27,11 @@ class GraphCreator(DataCreator):
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
 
+        edge_index_path = os.path.join(self.save_dir, "edge_index.pkl")
+        node_features_path = os.path.join(self.save_dir, "node_features.pkl")
+        labels_path = os.path.join(self.save_dir, "labels.pkl")
+        self.paths = [edge_index_path, node_features_path, labels_path]
+
     def create(self):
         crime_df = super().create()
         regions = self.__divide_into_regions(crime_df,
@@ -58,6 +63,19 @@ class GraphCreator(DataCreator):
         # save created data
         self.__save_data()
         print(f"Data Creation finished, data saved under {self.save_dir}")
+
+    def load(self):
+        loaded = False
+        if all([os.path.exists(path) for path in self.paths]):
+            with open(self.paths[0], "rb") as f:
+                self.edge_index = pkl.load(f)
+            with open(self.paths[1], "rb") as f:
+                self.node_features = pkl.load(f)
+            with open(self.paths[2], "rb") as f:
+                self.labels = pkl.load(f)
+
+            loaded = True
+        return loaded
 
     def __divide_into_regions(self, crime_df, lat_range, lon_range, threshold):
         cor_df = crime_df[["Latitude", "Longitude"]]
@@ -117,12 +135,8 @@ class GraphCreator(DataCreator):
         return label_arr
 
     def __save_data(self):
-        edge_index_path = os.path.join(self.save_dir, "edge_index.pkl")
-        node_features_path = os.path.join(self.save_dir, "node_features.pkl")
-        labels_path = os.path.join(self.save_dir, "labels.pkl")
-        paths = [edge_index_path, node_features_path, labels_path]
         items = [self.edge_index, self.node_features, self.labels]
-        for path, item in zip(paths, items):
+        for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)
 
