@@ -19,8 +19,9 @@ class GraphDataset:
         # generate
         for i in range(self.num_iter):
             node_features = torch.from_numpy(all_data[i][0])
-            labels = [torch.from_numpy(label) for label in all_data[i][1]]
-            yield node_features, labels, self.edge_index
+            labels = [torch.from_numpy(all_data[i][1][k]) for k in range(self.batch_size)]
+            edge_index = torch.from_numpy(self.edge_index)
+            yield node_features, labels, edge_index
 
     def __create_buffer(self):
         total_frame = len(self.node_features)
