@@ -10,7 +10,7 @@ def run():
     loaded = data_creator.load()
     if not loaded:
         print(f"Data is not found in {data_creator.save_dir}. Starting data creation...")
-        data_creator.create()
+        data_creator.create_graph()
     else:
         print(f"Data found. Data is loaded from {data_creator.save_dir}.")
 
@@ -23,6 +23,13 @@ def run():
         print(batch)
 
     print()
+
+    # from scipy.stats import multivariate_normal as mvn
+    # import numpy as np
+    # mean = np.array([1, 5])
+    # covariance = np.array([[1, 0.3], [0.3, 1]])
+    # dist = mvn(mean=mean, cov=covariance)
+    # print("CDF:", dist.cdf(np.array([2, 4])))
 
 
 if __name__ == '__main__':

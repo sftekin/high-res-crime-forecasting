@@ -19,7 +19,7 @@ class GraphDataset:
         # generate
         for i in range(self.num_iter):
             node_features = torch.from_numpy(all_data[i][0])
-            labels = torch.from_numpy(all_data[i][1])
+            labels = [torch.from_numpy(label) for label in all_data[i][1]]
             yield node_features, labels, self.edge_index
 
     def __create_buffer(self):

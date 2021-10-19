@@ -11,6 +11,7 @@ class DataCreator:
     def __init__(self, data_params):
         self.__data_path = os.path.join(self.dataset_dir, data_params["data_raw_path"])
         self.plot = data_params["plot"]
+        self.top_k = data_params["top_k"]  # is the feature count of grid
 
         # spatial settings
         self.coord_range = data_params["coord_range"]  # [[41.60, 42.05], [-87.9, -87.5]]  # Lat-Lon
@@ -31,8 +32,7 @@ class DataCreator:
 
         return crime_df
 
-    @staticmethod
-    def _preprocess(crime_df):
+    def _preprocess(self, crime_df):
         crime_df.drop_duplicates(subset=['ID', 'Case Number'], inplace=True)
 
         crime_df.drop(['Case Number', 'IUCR', 'Updated On',
@@ -53,7 +53,7 @@ class DataCreator:
         crime_df['Description'] = pd.Categorical(crime_df['Description'])
 
         # Take top 10 crimes
-        top10crime_types = list(crime_df["Primary Type"].value_counts()[:10].index)
+        top10crime_types = list(crime_df["Primary Type"].value_counts()[:self.top_k].index)
         crime_df = crime_df[crime_df["Primary Type"].isin(top10crime_types)]
 
         # remove unused categories

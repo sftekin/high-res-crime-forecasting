@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
@@ -21,10 +22,10 @@ class GridCreator(DataCreator):
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
 
-    def create(self):
+    def create_grid(self):
         crime_df = super().create()
-
         crime_types = self.data_columns
+
         for i in range(len(crime_types)):
             in_df = crime_df[crime_df[crime_types[i]] == 1]
             print(crime_types[i])
@@ -38,13 +39,37 @@ class GridCreator(DataCreator):
             flatten_grid = np.sum(grid, axis=0).flatten()
             zero_ratio = sum(flatten_grid == 0) / len(flatten_grid) * 100
             save_path = os.path.join(self.figures_dir, "all_hist.png")
-            plot_hist_dist(flatten_grid, x_label="Total Event per Cell",
+            plot_hist_dist(flatten_grid,
+                           x_label="Total Event per Cell",
                            title=f"Zero Ratio {zero_ratio:.2f}",
                            save_path=save_path)
 
         print(f"Data Creation finished, data saved under {self.save_dir}")
+        return grid, crime_df
 
-    def _convert_grid(self, in_df, mode=""):
+    def check_is_created(self):
+        if not os.path.exists(self.save_dir):
+            return False
+
+        grid = self.load_grid(mode="seperated")
+        if grid.shape != (len(self.date_r), self.m, self.n, self.top_k):
+            return False
+
+        grid = self.load_grid(mode="all")
+        if grid.shape != (len(self.date_r), self.m, self.n, 1):
+            return False
+        return True
+
+    def load_grid(self, mode="seperated"):
+        npy_paths = self.get_npy_paths(self.save_dir, mode)
+        grid = []
+        for path in npy_paths:
+            with open(path, "rb") as f:
+                grid.append(np.load(f))
+        grid = np.stack(grid)
+        return grid
+
+    def _convert_grid(self, in_df, mode="seperated"):
         x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n + 1)
         y_ticks = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m + 1)
 
@@ -62,7 +87,7 @@ class GridCreator(DataCreator):
         # save each time frame in temp directory
         for t in range(time_len):
             grid_t = grid[t]
-            save_path = os.path.join(self.save_dir, f"{mode}{t}.npy")
+            save_path = os.path.join(self.save_dir, mode, f"{t}.npy")
             if os.path.exists(save_path):
                 with open(save_path, "rb") as f:
                     saved_arr = np.load(f)
@@ -178,3 +203,12 @@ class GridCreator(DataCreator):
         self._plot_2d(grid, title=title)
         self._plot_3d(in_grid=grid, title=title)
         self._plot_3d_bar(grid, title=title)
+
+    @staticmethod
+    def get_npy_paths(save_dir, mode):
+        npy_path = os.path.join(save_dir, mode, "*.npy")
+        grid_files = [file for file in glob.glob(npy_path)]
+        file_arr = np.array(grid_files)
+        sorted_idx = np.argsort(np.array([int(os.path.basename(path).split(".")[0]) for path in grid_files]))
+        sorted_file_arr = file_arr[sorted_idx]
+        return sorted_file_arr

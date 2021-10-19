@@ -5,18 +5,19 @@ import numpy as np
 import pandas as pd
 
 import itertools
-from data_generators.data_creator import DataCreator
+from data_generators.grid_creator import GridCreator
 from shapely.geometry import Polygon, LineString
 from helpers.graph_helper import plot_regions, plot_graph
 from helpers.plot_helper import plot_hist_dist
 from concurrent.futures import ThreadPoolExecutor
 
 
-class GraphCreator(DataCreator):
-    def __init__(self, data_params, graph_params):
-        super(GraphCreator, self).__init__(data_params)
+class GraphCreator(GridCreator):
+    def __init__(self, data_params, grid_params, graph_params):
+        super(GraphCreator, self).__init__(data_params, grid_params)
         self.threshold = graph_params["event_threshold"]
         self.include_side_info = graph_params["include_side_info"]
+        self.grid_name = graph_params["grid_name"]
 
         self.node_features = None
         self.edge_index = None
@@ -32,8 +33,31 @@ class GraphCreator(DataCreator):
         labels_path = os.path.join(self.save_dir, "labels.pkl")
         self.paths = [edge_index_path, node_features_path, labels_path]
 
-    def create(self):
+    def create_graph(self):
         crime_df = super().create()
+        if super().check_is_created():
+            grid = super().load_grid(mode="all")
+        else:
+            grid = super().create_grid()
+
+        # divide grid into regions (rectangles) according to threshold value
+        init_r, init_c = (0, self.m), (0, self.n)
+        self.regions = self.__divide_regions(self.grid, threshold=threshold, r=init_r, c=init_c)
+
+        # find each coordinate of the cells
+        self.coord_grid = self.__create_coord_grid()  # M, N, 4, 2
+
+        # convert each rectangle to polygon
+        self.region_poly = self.__region2polygon()
+
+        # create nodes
+        self.nodes = np.concatenate([poly.centroid.coords.xy for poly in self.region_poly], axis=1).T
+
+        # create edges
+        self.edges = self.get_intersections(self.region_poly)
+        if plot:
+            plot_graph(nodes=self.nodes, edges=self.edges)
+
         regions = self.__divide_into_regions(crime_df,
                                              lat_range=self.coord_range[0],
                                              lon_range=self.coord_range[1],

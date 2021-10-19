@@ -6,8 +6,10 @@ def run():
     config = Config()
     data_creator = GridCreator(data_params=config.data_params,
                                grid_params=config.grid_params)
-    data_creator.create()
-    print()
+
+    if not data_creator.check_is_created():
+        data_creator.create_grid()
+        print()
 
 
 if __name__ == '__main__':
