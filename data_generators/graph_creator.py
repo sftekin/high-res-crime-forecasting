@@ -23,6 +23,7 @@ class GraphCreator(DataCreator):
         self.node_features = None
         self.edge_index = None
         self.labels = None
+        self.node2cells = {}
 
         # create the data_dump directory
         self.graph_save_dir = os.path.join(self.temp_dir, "graph", f"data_dump_{self.temp_res}_{self.threshold}")
@@ -32,7 +33,8 @@ class GraphCreator(DataCreator):
         edge_index_path = os.path.join(self.graph_save_dir, "edge_index.pkl")
         node_features_path = os.path.join(self.graph_save_dir, "node_features.pkl")
         labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
-        self.paths = [edge_index_path, node_features_path, labels_path]
+        node2cells_path = os.path.join(self.graph_save_dir, "node2cells.pkl")
+        self.paths = [edge_index_path, node_features_path, labels_path, node2cells_path]
 
     def create_graph(self, grid):
         crime_df = super().create()
@@ -58,7 +60,8 @@ class GraphCreator(DataCreator):
         # create graph parameters
         self.edge_index = self.create_edge_index(edges)
         self.node_features = self.__create_node_features(crime_df, nodes, polygons)
-        self.labels = self.__create_labels(grid, coord_grid)
+        self.labels = grid
+        self.__create_node_cells(regions, coord_grid)
 
         if self.plot:
             plot_regions(polygons, coord_range=self.coord_range)
@@ -66,7 +69,8 @@ class GraphCreator(DataCreator):
             node_sum = np.sum(self.node_features[:, :, -1], axis=0)
             zero_ratio = sum(node_sum == 0) / len(node_sum) * 100
             save_path = os.path.join(self.figures_dir, "nodes_hist.png")
-            plot_hist_dist(node_sum, x_label="Total Event per Node",
+            plot_hist_dist(node_sum,
+                           x_label="Total Event per Node",
                            title=f"Zero Ratio {zero_ratio:.2f}",
                            save_path=save_path)
 
@@ -83,7 +87,8 @@ class GraphCreator(DataCreator):
                 self.node_features = pkl.load(f)
             with open(self.paths[2], "rb") as f:
                 self.labels = pkl.load(f)
-
+            with open(self.paths[3], "rb") as f:
+                self.node2cells = pkl.load(f)
             loaded = True
         return loaded
 
@@ -118,11 +123,13 @@ class GraphCreator(DataCreator):
 
         return node_features
 
-    def __create_labels(self, ):
-        return
+    def __create_node_cells(self, regions, coord_grid):
+        for i, (r, c) in enumerate(regions):
+            region_cells = coord_grid[r[0]:r[1], c[0]:c[1]]
+            self.node2cells[i] = region_cells.reshape(-1, 4, 2)
 
     def __save_data(self):
-        items = [self.edge_index, self.node_features, self.labels]
+        items = [self.edge_index, self.node_features, self.labels, self.node2cells]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)
@@ -130,7 +137,7 @@ class GraphCreator(DataCreator):
     def __divide_regions(self, in_grid, threshold, r, c):
         grid = in_grid[r[0]:r[1], c[0]:c[1]]
 
-        if np.sum(grid) <= threshold or grid.shape < self.min_cell_size:
+        if np.sum(grid) <= threshold or grid.shape <= self.min_cell_size:
             return [[r, c]]
         else:
             split_ids = self.split_regions(in_grid, r, c)

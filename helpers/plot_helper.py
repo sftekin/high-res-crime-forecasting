@@ -10,3 +10,4 @@ def plot_hist_dist(in_arr, x_label="", title="", bins=25, save_path=None):
     plt.title(title)
     if save_path:
         plt.savefig(save_path, dpi=200)
+    plt.show()

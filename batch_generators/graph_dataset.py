@@ -19,7 +19,7 @@ class GraphDataset:
         # generate
         for i in range(self.num_iter):
             node_features = torch.from_numpy(all_data[i][0])
-            labels = [torch.from_numpy(all_data[i][1][k]) for k in range(self.batch_size)]
+            labels = torch.from_numpy(all_data[i][1])
             edge_index = torch.from_numpy(self.edge_index)
             yield node_features, labels, edge_index
 
@@ -33,7 +33,12 @@ class GraphDataset:
                 batch_label.append(self.labels[i+self.window_in_len])
                 j += 1
             else:
-                all_data.append([np.stack(batch_node, axis=0), batch_label])
-                batch_node, batch_label = [], []
-                j = 0
+                all_data.append([np.stack(batch_node, axis=0),
+                                 np.stack(batch_label, axis=0)])
+                batch_node = [self.node_features[i:i+self.window_in_len]]
+                batch_label = [self.labels[i+self.window_in_len]]
+                j = 1
+        if len(batch_node) > 0:
+            all_data.append([np.stack(batch_node, axis=0),
+                             np.stack(batch_label, axis=0)])
         return all_data

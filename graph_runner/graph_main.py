@@ -25,8 +25,9 @@ def run():
                                edge_index=graph_creator.edge_index,
                                batch_gen_params=config.batch_gen_params["graph"])
 
-    for batch in generator.generate(dataset_name="train"):
-        print(batch)
+    for i, batch in enumerate(generator.generate(dataset_name="train")):
+        x, y, edge_index = batch
+        print(i, x.shape, y.shape, edge_index.shape)
 
     print()
 

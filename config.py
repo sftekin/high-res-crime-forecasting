@@ -8,14 +8,14 @@ class Config:
             "temporal_res": 24,
             "time_range": ("2015-01-01", "2019-11-01"),
             "top_k": 10,
-            "plot": True
+            "plot": False
         }
 
         self.graph_params = {
             "event_threshold": 5000,
             "include_side_info": False,
             "grid_name": "all",
-            "min_cell_size": (4, 4)
+            "min_cell_size": (2, 2)
         }
 
         self.grid_params = {
