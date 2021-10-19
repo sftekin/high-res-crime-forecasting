@@ -5,74 +5,60 @@ import numpy as np
 import pandas as pd
 
 import itertools
-from data_generators.grid_creator import GridCreator
+from data_generators.data_creator import DataCreator
 from shapely.geometry import Polygon, LineString
 from helpers.graph_helper import plot_regions, plot_graph
 from helpers.plot_helper import plot_hist_dist
 from concurrent.futures import ThreadPoolExecutor
 
 
-class GraphCreator(GridCreator):
-    def __init__(self, data_params, grid_params, graph_params):
-        super(GraphCreator, self).__init__(data_params, grid_params)
+class GraphCreator(DataCreator):
+    def __init__(self, data_params, graph_params):
+        super(GraphCreator, self).__init__(data_params)
         self.threshold = graph_params["event_threshold"]
         self.include_side_info = graph_params["include_side_info"]
         self.grid_name = graph_params["grid_name"]
+        self.min_cell_size = graph_params["min_cell_size"]
 
         self.node_features = None
         self.edge_index = None
         self.labels = None
 
         # create the data_dump directory
-        self.save_dir = os.path.join(self.temp_dir, "graph", f"data_dump_{self.temp_res}_{self.threshold}")
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
+        self.graph_save_dir = os.path.join(self.temp_dir, "graph", f"data_dump_{self.temp_res}_{self.threshold}")
+        if not os.path.exists(self.graph_save_dir):
+            os.makedirs(self.graph_save_dir)
 
-        edge_index_path = os.path.join(self.save_dir, "edge_index.pkl")
-        node_features_path = os.path.join(self.save_dir, "node_features.pkl")
-        labels_path = os.path.join(self.save_dir, "labels.pkl")
+        edge_index_path = os.path.join(self.graph_save_dir, "edge_index.pkl")
+        node_features_path = os.path.join(self.graph_save_dir, "node_features.pkl")
+        labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
         self.paths = [edge_index_path, node_features_path, labels_path]
 
-    def create_graph(self):
+    def create_graph(self, grid):
         crime_df = super().create()
-        if super().check_is_created():
-            grid = super().load_grid(mode="all")
-        else:
-            grid = super().create_grid()
 
         # divide grid into regions (rectangles) according to threshold value
-        init_r, init_c = (0, self.m), (0, self.n)
-        self.regions = self.__divide_regions(self.grid, threshold=threshold, r=init_r, c=init_c)
+        m, n = grid.shape[1:3]
+        init_r, init_c = (0, m), (0, n)
+        grid_sum = np.squeeze(np.sum(grid, axis=0))
+        regions = self.__divide_regions(grid_sum, threshold=self.threshold, r=init_r, c=init_c)
 
         # find each coordinate of the cells
-        self.coord_grid = self.__create_coord_grid()  # M, N, 4, 2
+        coord_grid = self.__create_coord_grid(m, n)  # M, N, 4, 2
 
         # convert each rectangle to polygon
-        self.region_poly = self.__region2polygon()
+        polygons = self.__region2polygon(coord_grid, regions)
 
         # create nodes
-        self.nodes = np.concatenate([poly.centroid.coords.xy for poly in self.region_poly], axis=1).T
-
-        # create edges
-        self.edges = self.get_intersections(self.region_poly)
-        if plot:
-            plot_graph(nodes=self.nodes, edges=self.edges)
-
-        regions = self.__divide_into_regions(crime_df,
-                                             lat_range=self.coord_range[0],
-                                             lon_range=self.coord_range[1],
-                                             threshold=self.threshold)
-        # create nodes
-        polygons = self.region2polygon(regions)
         nodes = np.concatenate([poly.centroid.coords.xy for poly in polygons], axis=1).T
 
         # create edges
         edges = self.get_intersections(polygons)
 
-        # crea
+        # create graph parameters
         self.edge_index = self.create_edge_index(edges)
-        self.node_features = self.__create_node_features(crime_df, nodes, regions)
-        self.labels = self.__create_labels(crime_df, nodes)
+        self.node_features = self.__create_node_features(crime_df, nodes, polygons)
+        self.labels = self.__create_labels(grid, coord_grid)
 
         if self.plot:
             plot_regions(polygons, coord_range=self.coord_range)
@@ -86,7 +72,7 @@ class GraphCreator(GridCreator):
 
         # save created data
         self.__save_data()
-        print(f"Data Creation finished, data saved under {self.save_dir}")
+        print(f"Data Creation finished, data saved under {self.graph_save_dir}")
 
     def load(self):
         loaded = False
@@ -101,30 +87,24 @@ class GraphCreator(GridCreator):
             loaded = True
         return loaded
 
-    def __divide_into_regions(self, crime_df, lat_range, lon_range, threshold):
-        cor_df = crime_df[["Latitude", "Longitude"]]
-        region_count = len(self.get_in_range(cor_df, lat_range, lon_range))
+    def __create_node_features(self, crime_df, nodes, polygons):
+        # create lat lon range for each polygon
+        ranges = []
+        for poly in polygons:
+            lns, lats = poly.exterior.coords.xy
+            lt_range = [min(lats), max(lats)]
+            ln_range = [min(lns), max(lns)]
+            ranges.append([lt_range, ln_range])
 
-        if region_count <= threshold:
-            return [[lat_range, lon_range]]
-        else:
-            new_lats, new_lons = self.divide4(lat_range, lon_range)
-            regions = []
-            for lt_range, ln_range in itertools.product(new_lats, new_lons):
-                region = self.__divide_into_regions(crime_df, lt_range, ln_range, threshold)
-                regions += region
-            return regions
-
-    def __create_node_features(self, crime_df, nodes, regions):
+        # create node features
         time_len, num_nodes = len(self.date_r), len(nodes)
         if self.include_side_info:
             num_feats = crime_df.shape[1] + 1  # categorical features + event_count + node_location
         else:
             num_feats = 3  # event count + node_location
-
         node_features = np.zeros((time_len, num_nodes, num_feats))
         for n in range(len(nodes)):
-            lt, ln = regions[n]
+            lt, ln = ranges[n]
             region_df = self.get_in_range(crime_df, lt, ln)
             node_features[:, n, :2] = nodes[n]  # first 2 features are the location of node
             if not region_df.empty:
@@ -138,31 +118,40 @@ class GraphCreator(GridCreator):
 
         return node_features
 
-    def __create_labels(self, crime_df, nodes):
-        arg_list = []
-        for t in self.date_r:
-            arg_list.append((crime_df, t, nodes))
-        with ThreadPoolExecutor(max_workers=self.num_process) as executor:
-            labels = executor.map(lambda p: self.__match_event_node(*p), arg_list)
-            labels = list(labels)
-        return labels
-
-    def __match_event_node(self, crime_df, t, nodes):
-        label_arr = []
-        t_1 = t + pd.DateOffset(hours=self.temp_res)
-        cropped_df = crime_df.loc[(t <= crime_df.index) & (crime_df.index < t_1)]
-        if not cropped_df.empty:
-            locs = cropped_df[["Longitude", "Latitude"]].values
-            dist_mat = self.calculate_distances(locs, nodes, self.num_process)
-            node_contains = np.argmin(dist_mat, axis=1).reshape(-1, 1)
-            label_arr = np.concatenate([locs, node_contains], axis=1)
-        return label_arr
+    def __create_labels(self, ):
+        return
 
     def __save_data(self):
         items = [self.edge_index, self.node_features, self.labels]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)
+
+    def __divide_regions(self, in_grid, threshold, r, c):
+        grid = in_grid[r[0]:r[1], c[0]:c[1]]
+
+        if np.sum(grid) <= threshold or grid.shape < self.min_cell_size:
+            return [[r, c]]
+        else:
+            split_ids = self.split_regions(in_grid, r, c)
+            region_ids = []
+            for r, c in split_ids:
+                region_id = self.__divide_regions(in_grid, threshold, r, c)
+                region_ids += region_id
+            return region_ids
+
+    def __create_coord_grid(self, m, n):
+        x = np.linspace(self.coord_range[1][0], self.coord_range[1][1], n + 1)
+        y = np.linspace(self.coord_range[0][0], self.coord_range[0][1], m + 1)
+
+        coord_grid = np.zeros((m, n, 4, 2))
+        for j in range(m):
+            for i in range(n):
+                coords = np.array(list(itertools.product(x[i:i + 2], y[j:j + 2])))
+                coords_ordered = coords[[0, 1, 3, 2], :]
+                coord_grid[m - j - 1, i, :] = coords_ordered
+
+        return coord_grid
 
     @staticmethod
     def create_edge_index(edges):
@@ -181,63 +170,59 @@ class GraphCreator(GridCreator):
         return in_range_df
 
     @staticmethod
-    def divide4(lt, ln):
-        y_mid = lt[0] + abs(lt[1] - lt[0]) / 2
-        x_mid = ln[0] + abs(ln[1] - ln[0]) / 2
-        lts = [[lt[0], y_mid], [y_mid, lt[1]]]
-        lns = [[ln[0], x_mid], [x_mid, ln[1]]]
-        return lts, lns
-
-    @staticmethod
-    def region2polygon(regions):
-        polygons_list = []
-        for lt, ln in regions:
-            coords = np.array(list(itertools.product(ln, lt)))
-            coords_ordered = coords[[0, 1, 3, 2], :]
-            polygon = Polygon(coords_ordered)
-            polygons_list.append(polygon)
-        return polygons_list
-
-    @staticmethod
     def get_intersections(polygons_list):
-        intersectons = {}
+        intersections = {}
         for i in range(len(polygons_list)):
-            intersectons[i] = []
+            intersections[i] = []
             for j in range(len(polygons_list)):
                 if i == j:
                     continue
                 if polygons_list[i].intersects(polygons_list[j]) and \
                         isinstance(polygons_list[i].intersection(polygons_list[j]), LineString):
-                    intersectons[i].append(j)
-        return intersectons
+                    intersections[i].append(j)
+        return intersections
 
     @staticmethod
-    def calculate_distances(unk_locs, knw_locs, num_processes):
-        """
-        Calculates distance matrix.
+    def __region2polygon(coord_grid, regions):
+        polygons_list = []
+        for r, c in regions:
+            region_pts = coord_grid[r[0]:r[1], c[0]:c[1]]
+            region_pts = region_pts.reshape(-1, 2)
+            lon_min, lon_max = np.min(region_pts[:, 0]), np.max(region_pts[:, 0])
+            lat_min, lat_max = np.min(region_pts[:, 1]), np.max(region_pts[:, 1])
 
-        :param np.ndarray unk_locs: (N, 2)
-        :param np.ndarray knw_locs: (M, 2)
-        :param int num_processes:
-        :return: distance matrix (M, N)
-        :rtype: np.ndarray
-        """
+            coords = np.array(list(itertools.product([lon_min, lon_max], [lat_min, lat_max])))
+            coords_ordered = coords[[0, 1, 3, 2], :]
+            polygon = Polygon(coords_ordered)
+            polygons_list.append(polygon)
 
-        def l2_dist(x, y):
-            """
-            calculates distance between vector and point as elementwise
+        return polygons_list
 
-            :param np.ndarray x: (2,)
-            :param np.ndarray y: (N, 2)
-            :return: distance vector (N,2)
-            :rtype: np.ndarray
-            """
-            d = np.sum((y - x) ** 2, axis=1)
-            return d
+    @staticmethod
+    def split_regions(in_grid, r, c):
+        m, n = r[1] - r[0], c[1] - c[0]
+        pos_m, pos_n = [m // 2], [n // 2]
+        if m % 2 > 0:
+            pos_m.append(m // 2 + 1)
+        if n % 2 > 0:
+            pos_n.append(n // 2 + 1)
+        pos_m = [i + r[0] for i in pos_m]
+        pos_n = [i + c[0] for i in pos_n]
 
-        num_unk_points = unk_locs.shape[0]
-        arg_list = [(unk_locs[i], knw_locs) for i in range(num_unk_points)]
-        with ThreadPoolExecutor(max_workers=num_processes) as executor:
-            D = executor.map(lambda p: l2_dist(*p), arg_list)
-            D = np.stack(list(D), axis=0)
-        return D
+        max_sum = -1
+        best_indices = None
+        r_i, r_j = r
+        c_i, c_j = c
+        for i, (m_id, n_id) in enumerate(itertools.product(pos_m, pos_n)):
+            indices = [[(r_i, m_id), (c_i, n_id)],
+                       [(r_i, m_id), (n_id, c_j)],
+                       [(m_id, r_j), (c_i, n_id)],
+                       [(m_id, r_j), (n_id, c_j)]]
+            regions = [in_grid[x[0]:x[1], y[0]:y[1]] for x, y in indices]
+            region_sums = [np.sum(r) for r in regions]
+
+            if max_sum < max(region_sums):
+                best_indices = indices
+                max_sum = max(region_sums)
+
+        return best_indices

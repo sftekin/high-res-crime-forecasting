@@ -18,9 +18,9 @@ class GridCreator(DataCreator):
         self.m, self.n = grid_params["spatial_res"]
 
         # create the data_dump directory
-        self.save_dir = os.path.join(self.temp_dir, "grid", f"data_dump_{self.temp_res}_{self.m}_{self.n}")
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
+        self.grid_save_dir = os.path.join(self.temp_dir, "grid", f"data_dump_{self.temp_res}_{self.m}_{self.n}")
+        if not os.path.exists(self.grid_save_dir):
+            os.makedirs(self.grid_save_dir)
 
     def create_grid(self):
         crime_df = super().create()
@@ -44,11 +44,12 @@ class GridCreator(DataCreator):
                            title=f"Zero Ratio {zero_ratio:.2f}",
                            save_path=save_path)
 
-        print(f"Data Creation finished, data saved under {self.save_dir}")
-        return grid, crime_df
+        print(f"Data Creation finished, data saved under {self.grid_save_dir}")
+        return grid
 
     def check_is_created(self):
-        if not os.path.exists(self.save_dir):
+        if not os.path.exists(self.grid_save_dir) or \
+                len(os.listdir(self.grid_save_dir)) == 0:
             return False
 
         grid = self.load_grid(mode="seperated")
@@ -61,7 +62,7 @@ class GridCreator(DataCreator):
         return True
 
     def load_grid(self, mode="seperated"):
-        npy_paths = self.get_npy_paths(self.save_dir, mode)
+        npy_paths = self.get_npy_paths(self.grid_save_dir, mode)
         grid = []
         for path in npy_paths:
             with open(path, "rb") as f:
@@ -85,16 +86,18 @@ class GridCreator(DataCreator):
         grid = np.expand_dims(grid, -1)
 
         # save each time frame in temp directory
+        save_dir = os.path.join(self.grid_save_dir, mode)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         for t in range(time_len):
             grid_t = grid[t]
-            save_path = os.path.join(self.save_dir, mode, f"{t}.npy")
+            save_path = os.path.join(save_dir, f"{t}.npy")
             if os.path.exists(save_path):
                 with open(save_path, "rb") as f:
                     saved_arr = np.load(f)
                 grid_t = np.concatenate([saved_arr, grid_t], axis=-1)
             with open(save_path, "wb") as f:
                 np.save(f, grid_t)
-
         return grid
 
     def _plot_2d(self, in_grid, title):
@@ -205,8 +208,8 @@ class GridCreator(DataCreator):
         self._plot_3d_bar(grid, title=title)
 
     @staticmethod
-    def get_npy_paths(save_dir, mode):
-        npy_path = os.path.join(save_dir, mode, "*.npy")
+    def get_npy_paths(grid_save_dir, mode):
+        npy_path = os.path.join(grid_save_dir, mode, "*.npy")
         grid_files = [file for file in glob.glob(npy_path)]
         file_arr = np.array(grid_files)
         sorted_idx = np.argsort(np.array([int(os.path.basename(path).split(".")[0]) for path in grid_files]))

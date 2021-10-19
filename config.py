@@ -8,16 +8,18 @@ class Config:
             "temporal_res": 24,
             "time_range": ("2015-01-01", "2019-11-01"),
             "top_k": 10,
-            "plot": False
+            "plot": True
         }
 
         self.graph_params = {
             "event_threshold": 5000,
             "include_side_info": False,
+            "grid_name": "all",
+            "min_cell_size": (4, 4)
         }
 
         self.grid_params = {
-            "spatial_res": (100, 66)
+            "spatial_res": (100, 66)  # 500mx500m
         }
 
         self.batch_gen_params = {
