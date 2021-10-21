@@ -22,16 +22,13 @@ class Trainer:
         model = model.to(self.device)
         model.train()
 
-        if model.is_trainable:
-            if self.optimizer == "adam":
-                optimizer = optim.Adam(model.parameters(),
-                                       lr=self.learning_rate)
-            else:
-                optimizer = optim.SGD(model.parameters(),
-                                      lr=self.learning_rate,
-                                      momentum=self.momentum)
+        if self.optimizer == "adam":
+            optimizer = optim.Adam(model.parameters(),
+                                   lr=self.learning_rate)
         else:
-            optimizer = None
+            optimizer = optim.SGD(model.parameters(),
+                                  lr=self.learning_rate,
+                                  momentum=self.momentum)
 
         train_loss = []
         val_loss = []
@@ -100,24 +97,17 @@ class Trainer:
 
     def __step_loop(self, model, generator, mode, optimizer):
         running_loss = 0
-        batch_size = generator.dataset_params['batch_size']
         if mode in ['test', 'val']:
             step_fun = self.__val_step
         else:
             step_fun = self.__train_step
         idx = 0
-        for idx, (x, y, f_x) in enumerate(generator.generate(mode)):
+        for idx, (x, y, edge_index) in enumerate(generator.generate(mode)):
             print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)),
                   flush=True, end='')
-
-            if hasattr(model, 'hidden'):
-                hidden = model.init_hidden(batch_size)
-            else:
-                hidden = None
-
             x, y = [self.__prep_input(i) for i in [x, y]]
             loss = step_fun(model=model,
-                            inputs=[x, y, f_x.float().to(self.device), hidden],
+                            inputs=[x, y, edge_index.to(self.device)],
                             optimizer=optimizer,
                             generator=generator)
 
@@ -127,38 +117,29 @@ class Trainer:
         return running_loss
 
     def __train_step(self, model, inputs, optimizer, generator):
-        x, y, f_x, hidden = inputs
+        x, y, edge_index = inputs
         if optimizer:
             optimizer.zero_grad()
-        pred = model.forward(x=x, f_x=f_x, hidden=hidden)
+        pred = model.forward(x, edge_index)
+
         loss = self.criterion(pred, y)
 
-        if model.is_trainable:
-            loss.backward()
+        loss.backward()
 
-            # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-            nn.utils.clip_grad_norm_(model.parameters(), self.clip)
+        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+        nn.utils.clip_grad_norm_(model.parameters(), self.clip)
 
-            # take step in classifier's optimizer
-            optimizer.step()
+        # take step in classifier's optimizer
+        optimizer.step()
 
-        if generator.normalizer:
-            pred = generator.normalizer.inv_norm(pred, self.device)
-            y = generator.normalizer.inv_norm(y, self.device)
-
-        de_norm_loss = self.criterion(pred, y)
-        de_norm_loss = de_norm_loss.detach().cpu().numpy()
         loss = loss.detach().cpu().numpy()
-        print(f"  loss: {de_norm_loss}")
+        print(f"  loss: {loss}")
 
-        return de_norm_loss
+        return loss
 
     def __val_step(self, model, inputs, optimizer, generator):
-        x, y, f_x, hidden = inputs
-        pred = model.forward(x=x, f_x=f_x, hidden=hidden)
-        if generator.normalizer:
-            pred = generator.normalizer.inv_norm(pred, self.device)
-            y = generator.normalizer.inv_norm(y, self.device)
+        x, y, edge_index = inputs
+        pred = model.forward(x, edge_index)
 
         loss = self.criterion(pred, y)
 
@@ -166,6 +147,6 @@ class Trainer:
 
     def __prep_input(self, x):
         x = x.float().to(self.device)
-        # (b, t, m, n, d) -> (b, t, d, m, n)
-        x = x.permute(0, 1, 4, 2, 3)
+        # # (b, t, m, n, d) -> (b, t, d, m, n)
+        # x = x.permute(0, 1, 4, 2, 3)
         return x

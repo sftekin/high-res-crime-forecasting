@@ -27,20 +27,22 @@ class GraphModel(nn.Module):
                                             normalization=normalization)]
         self.memory_unit = nn.ModuleList(conv_list)
 
-        self.mu_weights = []
+        mu_weights = []
         for i in range(node_count):
-            self.mu_weights.append(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True))
+            mu_weights.append(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True))
+        self.mu_weights = nn.ModuleList(mu_weights)
 
-        self.sigma_weights = []
+        sigma_weights = []
         for i in range(node_count):
-            self.sigma_weights.append(nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
-                                                    nn.Softplus()))
+            sigma_weights.append(nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
+                                               nn.Softplus()))
+        self.sigma_weights = nn.ModuleList(sigma_weights)
 
     def forward(self, in_tensor, edge_index, edge_weight=None):
         # in_tensor has the shape of (B, T, M, D)
         # where M is node count, D is input dim,
         # B is batch size, and T is time step
-        batch_size, window_in = in_tensor.shape[:2]
+        batch_size, window_in, node_count = in_tensor.shape[:3]
 
         # forward memory unit
         output_batch = []
@@ -70,10 +72,10 @@ class GraphModel(nn.Module):
 
         # create mixing coefficients
         batch_idx = torch.ones((batch_size, node_count), dtype=int) * torch.arange(batch_size).unsqueeze(dim=1)
-        mix_val = pyg_nn.global_mean_pool(output.view(-1, self.hidden_dims[-1]), batch_idx.flatten()).shape
-        mix_coff = F.softmax(mix_val, dim=1)
+        mix_val = pyg_nn.global_mean_pool(output.view(-1, self.hidden_dims[-1]), batch_idx.flatten().to(self.device))
+        mix_coeff = F.softmax(mix_val, dim=1)
 
-        return mu_outputs, sigma_outputs, mix_coff
+        return mu_outputs, sigma_outputs, mix_coeff
 
     def init_bias(self, bias_values):
         for i in range(len(bias_values)):
@@ -112,5 +114,5 @@ if __name__ == '__main__':
 
     in_tensor = torch.from_numpy(in_tensor).float()
     edge_index = torch.from_numpy(edge_index)
-    mu, sigma = model(in_tensor, edge_index)
+    mu, sigma, mix_coeff = model(in_tensor, edge_index)
     print()

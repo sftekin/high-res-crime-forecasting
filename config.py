@@ -1,5 +1,3 @@
-
-
 class Config:
     def __init__(self):
         self.data_params = {
@@ -30,5 +28,27 @@ class Config:
                 "window_out_len": 1,
                 "batch_size": 5,
                 "shuffle": False,
+            }
+        }
+
+        self.graph_trainer_prams = {
+            "device": 'cuda',
+            "num_epochs": 100,
+            "momentum": 0.7,
+            "optimizer": "adam",
+            "weight_decay": 0.00023,
+            "learning_rate": 0.0006,
+            "clip": 5,
+            "early_stop_tolerance": 4
+        }
+
+        self.model_params = {
+            "graph_model": {
+                "input_dim": 3,
+                "hidden_dims": [30, 20, 10],
+                "num_layers": 3,
+                "filter_sizes": [3, 3, 3],
+                "bias": True,
+                "normalization": "sym",
             }
         }

@@ -2,6 +2,8 @@ from config import Config
 from data_generators.graph_creator import GraphCreator
 from data_generators.grid_creator import GridCreator
 from batch_generators.graph_generator import GraphGenerator
+from graph_trainer import Trainer
+from models.graph_model import GraphModel
 
 
 def run():
@@ -25,18 +27,12 @@ def run():
                                edge_index=graph_creator.edge_index,
                                batch_gen_params=config.batch_gen_params["graph"])
 
-    for i, batch in enumerate(generator.generate(dataset_name="train")):
-        x, y, edge_index = batch
-        print(i, x.shape, y.shape, edge_index.shape)
+    model = GraphModel(device=config.graph_trainer_prams["device"],
+                       node_count=graph_creator.node_features.shape[1],
+                       **config.model_params["graph_model"])
 
-    print()
-
-    # from scipy.stats import multivariate_normal as mvn
-    # import numpy as np
-    # mean = np.array([1, 5])
-    # covariance = np.array([[1, 0.3], [0.3, 1]])
-    # dist = mvn(mean=mean, cov=covariance)
-    # print("CDF:", dist.cdf(np.array([2, 4])))
+    trainer = Trainer(**config.graph_trainer_prams)
+    trainer.fit(model=model, batch_generator=generator)
 
 
 if __name__ == '__main__':
