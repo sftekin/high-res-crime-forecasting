@@ -28,7 +28,7 @@ class GraphModel(nn.Module):
         self.memory_unit = nn.ModuleList(conv_list)
 
         self.mu = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
-                                nn.ReLU())
+                                nn.Sigmoid())
         self.sigma = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
                                    nn.Softplus())
 
