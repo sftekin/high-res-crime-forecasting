@@ -6,8 +6,8 @@ from copy import deepcopy
 
 
 class Trainer:
-    def __init__(self, num_epochs, early_stop_tolerance, clip, optimizer,
-                 learning_rate, weight_decay, momentum, device):
+    def __init__(self, num_epochs, early_stop_tolerance, clip, optimizer, loss_function,
+                 learning_rate, weight_decay, momentum, device, node2cell=None):
         self.num_epochs = num_epochs
         self.clip = clip
         self.optimizer = optimizer
@@ -16,7 +16,12 @@ class Trainer:
         self.learning_rate = learning_rate
         self.tolerance = early_stop_tolerance
         self.device = torch.device(device)
-        self.criterion = nn.BCELoss()
+        self.loss_function = loss_function
+        self.custom_losses = ["prob_loss"]
+        if node2cell is not None:
+            self.node2cell = {}
+            for i, arr in node2cell.items():
+                self.node2cell[i] = torch.from_numpy(arr).float().to(device)
 
     def fit(self, model, batch_generator):
         model = model.to(self.device)
@@ -92,7 +97,7 @@ class Trainer:
                                      generator=batch_generator,
                                      mode='test',
                                      optimizer=None)
-        print('Test finished, best eval lost: {:.5f}'.format(test_loss))
+        print('Test finished, test loss: {:.5f}'.format(test_loss))
         return test_loss
 
     def __step_loop(self, model, generator, mode, optimizer):
@@ -122,7 +127,7 @@ class Trainer:
             optimizer.zero_grad()
         pred = model.forward(x, edge_index)
 
-        loss = self.criterion(pred, y)
+        loss = self.__get_loss(pred, y)
 
         loss.backward()
 
@@ -145,8 +150,41 @@ class Trainer:
 
         return loss.detach().cpu().numpy()
 
+    def __get_loss(self, pred, y, **kwargs):
+        loss_dict = {
+            "MSE": nn.MSELoss(),
+            "BCE": nn.BCELoss(),
+            "prob_loss": self.__prob_loss
+        }
+        if self.loss_function in self.custom_losses:
+            loss, pred = loss_dict[self.loss_function](pred=pred, y=y, **kwargs)
+        else:
+            loss = loss_dict[self.loss_function](pred, y)
+
+        return loss
+
+    def __prob_loss(self, pred, y):
+        pred_mu, pred_sigma, mix_coef = pred
+        probs = []
+        for batch_id in range(pred_mu.shape[0]):
+            for node_id, cell_arr in self.node2cell.items():
+                mu1, mu2 = pred_mu[batch_id, node_id]
+                sigma1, sigma2 = pred_sigma[batch_id, node_id]
+
+                p1 = self.__calc_prob(cell_arr[:, 0], mu1, sigma1)
+                p2 = self.__calc_prob(cell_arr[:, 1], mu2, sigma2)
+
+                probs.append(p1 * p2)
+
     def __prep_input(self, x):
         x = x.float().to(self.device)
         # # (b, t, m, n, d) -> (b, t, d, m, n)
         # x = x.permute(0, 1, 4, 2, 3)
         return x
+
+    @staticmethod
+    def __calc_prob(x, mu, sigma):
+        x1 = (x[:, 0] - mu) / (sigma * 1.41)
+        x2 = (x[:, 1] - mu) / (sigma * 1.41)
+        prob = (torch.erf(x2) - torch.erf(x1)) * 0.5
+        return prob

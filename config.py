@@ -13,7 +13,8 @@ class Config:
             "event_threshold": 5000,
             "include_side_info": False,
             "grid_name": "all",
-            "min_cell_size": (2, 2)
+            "min_cell_size": (5, 5),
+            "normalize_coords": True
         }
 
         self.grid_params = {
@@ -28,6 +29,9 @@ class Config:
                 "window_out_len": 1,
                 "batch_size": 5,
                 "shuffle": False,
+                "normalize_flag": True,
+                "normalize_methods": ["min_max"],
+                "normalization_dims": "all"
             }
         }
 
@@ -39,7 +43,8 @@ class Config:
             "weight_decay": 0.00023,
             "learning_rate": 0.0006,
             "clip": 5,
-            "early_stop_tolerance": 4
+            "early_stop_tolerance": 4,
+            "loss_function": "prob_loss"
         }
 
         self.model_params = {

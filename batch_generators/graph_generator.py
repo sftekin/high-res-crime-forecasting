@@ -1,4 +1,5 @@
 from batch_generators.graph_dataset import GraphDataset
+from normalizers.batch_normalizer import BatchNormalizer
 
 
 class GraphGenerator:
@@ -13,6 +14,14 @@ class GraphGenerator:
         self.window_out_len = batch_gen_params["window_out_len"]
         self.batch_size = batch_gen_params["batch_size"]
         self.shuffle = batch_gen_params["shuffle"]
+        self.normalize_flag = batch_gen_params["normalize_flag"]
+        self.normalize_methods = batch_gen_params["normalize_methods"]
+        self.normalization_dims = batch_gen_params["normalization_dims"]
+
+        if self.normalize_flag:
+            self.normalizer = BatchNormalizer(normalize_methods=self.normalize_methods,
+                                              normalization_dims=self.normalization_dims)
+            self.input_data = self.normalizer.norm(x=self.node_features)
 
         self.train_val_size = len(node_features) - self.test_size
         self.val_size = int(self.train_val_size * self.val_ratio)

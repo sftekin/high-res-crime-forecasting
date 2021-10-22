@@ -27,16 +27,10 @@ class GraphModel(nn.Module):
                                             normalization=normalization)]
         self.memory_unit = nn.ModuleList(conv_list)
 
-        mu_weights = []
-        for i in range(node_count):
-            mu_weights.append(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True))
-        self.mu_weights = nn.ModuleList(mu_weights)
-
-        sigma_weights = []
-        for i in range(node_count):
-            sigma_weights.append(nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
-                                               nn.Softplus()))
-        self.sigma_weights = nn.ModuleList(sigma_weights)
+        self.mu = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
+                                nn.ReLU())
+        self.sigma = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
+                                   nn.Softplus())
 
     def forward(self, in_tensor, edge_index, edge_weight=None):
         # in_tensor has the shape of (B, T, M, D)
@@ -64,22 +58,21 @@ class GraphModel(nn.Module):
         # forward node linear layers
         mu_outputs = []
         sigma_outputs = []
-        for i in range(self.node_count):
-            mu = self.mu_weights[i](output[:, i])
-            sigma = self.sigma_weights[i](output[:, i])
-            mu_outputs.append(mu)
-            sigma_outputs.append(sigma)
+        for batch_id in range(batch_size):
+            mu_outputs.append(self.mu(output[batch_id]))
+            sigma_outputs.append(self.sigma(output[batch_id]))
+        mu_outputs = torch.stack(mu_outputs)
+        sigma_outputs = torch.stack(sigma_outputs)
 
         # create mixing coefficients
-        batch_idx = torch.ones((batch_size, node_count), dtype=int) * torch.arange(batch_size).unsqueeze(dim=1)
+        batch_idx = torch.ones((batch_size, node_count), dtype=torch.int) * torch.arange(batch_size).unsqueeze(dim=1)
         mix_val = pyg_nn.global_mean_pool(output.view(-1, self.hidden_dims[-1]), batch_idx.flatten().to(self.device))
         mix_coeff = F.softmax(mix_val, dim=1)
 
         return mu_outputs, sigma_outputs, mix_coeff
 
-    def init_bias(self, bias_values):
-        for i in range(len(bias_values)):
-            self.mu_weights[i].bias = nn.Parameter(bias_values[i])
+    def init_bias(self, bias_value):
+        self.mu.bias = nn.Parameter(bias_value)
 
 
 if __name__ == '__main__':
@@ -107,10 +100,8 @@ if __name__ == '__main__':
                        normalization="sym",
                        device="cpu")
 
-    bias_values = []
-    for i in range(node_count):
-        bias_values.append(torch.tensor([-87.52424242, 41.68325], requires_grad=True).float())
-    model.init_bias(bias_values)
+    bias_value = torch.tensor([-87.52424242, 41.68325], requires_grad=True).float()
+    model.init_bias(bias_value)
 
     in_tensor = torch.from_numpy(in_tensor).float()
     edge_index = torch.from_numpy(edge_index)

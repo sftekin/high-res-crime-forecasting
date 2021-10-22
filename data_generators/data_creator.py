@@ -43,7 +43,7 @@ class DataCreator:
 
         # take top 20 categories and put the left out categories to OTHER
         loc_to_change = list(crime_df["Location Description"].value_counts()[20:].index)
-        desc_to_change = list(crime_df["Description"].value_counts()[20:].index)
+        desc_to_change = list(crime_df["Description"].value_counts()[10:].index)
 
         crime_df.loc[crime_df["Location Description"].isin(loc_to_change), "Location Description"] = "OTHER"
         crime_df.loc[crime_df["Description"].isin(desc_to_change), "Description"] = "OTHER"

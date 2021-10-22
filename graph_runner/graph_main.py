@@ -31,7 +31,7 @@ def run():
                        node_count=graph_creator.node_features.shape[1],
                        **config.model_params["graph_model"])
 
-    trainer = Trainer(**config.graph_trainer_prams)
+    trainer = Trainer(**config.graph_trainer_prams, node2cell=graph_creator.node2cells)
     trainer.fit(model=model, batch_generator=generator)
 
 

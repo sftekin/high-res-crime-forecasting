@@ -19,6 +19,7 @@ class GraphCreator(DataCreator):
         self.include_side_info = graph_params["include_side_info"]
         self.grid_name = graph_params["grid_name"]
         self.min_cell_size = graph_params["min_cell_size"]
+        self.normalize_coords = graph_params["normalize_coords"]
 
         self.node_features = None
         self.edge_index = None
@@ -38,6 +39,15 @@ class GraphCreator(DataCreator):
 
     def create_graph(self, grid):
         crime_df = super().create()
+
+        if self.normalize_coords:
+            coord_arr = crime_df[["Latitude", "Longitude"]].values
+            (min_lat, max_lat), (min_lon, max_lon) = self.coord_range
+            coord_arr[:, 0] = (coord_arr[:, 0] - min_lat) / (max_lat - min_lat)
+            coord_arr[:, 1] = (coord_arr[:, 1] - min_lon) / (max_lon - min_lon)
+            crime_df.loc[:, ["Latitude", "Longitude"]] = coord_arr
+            self.coord_range = [[0, 1], [0, 1]]
+            print()
 
         # divide grid into regions (rectangles) according to threshold value
         m, n = grid.shape[1:3]
@@ -125,8 +135,10 @@ class GraphCreator(DataCreator):
 
     def __create_node_cells(self, regions, coord_grid):
         for i, (r, c) in enumerate(regions):
-            region_cells = coord_grid[r[0]:r[1], c[0]:c[1]]
-            self.node2cells[i] = region_cells.reshape(-1, 4, 2)
+            region_cells = coord_grid[r[0]:r[1], c[0]:c[1]].reshape(-1, 4, 2)
+            region_cells = np.stack([np.min(region_cells, axis=1),
+                                     np.max(region_cells, axis=1)], axis=-1)
+            self.node2cells[i] = region_cells
 
     def __save_data(self):
         items = [self.edge_index, self.node_features, self.labels, self.node2cells]
