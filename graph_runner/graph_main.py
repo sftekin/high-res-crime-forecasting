@@ -1,8 +1,8 @@
 from config import Config
 from data_generators.graph_creator import GraphCreator
 from data_generators.grid_creator import GridCreator
-from batch_generators.graph_generator import GraphGenerator
-from graph_trainer import Trainer
+from batch_generators.batch_generator import BatchGenerator
+from trainer.trainer import Trainer
 from models.graph_model import GraphModel
 
 
@@ -22,11 +22,12 @@ def run():
     else:
         print(f"Data found. Data is loaded from {graph_creator.graph_save_dir}.")
 
-    generator = GraphGenerator(node_features=graph_creator.node_features,
+    config.batch_gen_params["dataset_name"] = "graph"
+    generator = BatchGenerator(in_data=graph_creator.node_features,
                                labels=graph_creator.labels,
                                edge_index=graph_creator.edge_index,
                                regions=graph_creator.regions,
-                               batch_gen_params=config.batch_gen_params["graph"])
+                               batch_gen_params=config.batch_gen_params)
 
     model = GraphModel(device=config.graph_trainer_prams["device"],
                        node_count=graph_creator.node_features.shape[1],

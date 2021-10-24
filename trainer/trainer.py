@@ -2,6 +2,7 @@ import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from copy import deepcopy
 
 
 class Trainer:
@@ -203,7 +204,8 @@ class Trainer:
             row_count = r[1] - r[0]
             col_count = c[1] - c[0]
             cell_count = row_count * col_count
-            grid[:, r[0]:r[1], c[0]:c[1]] = pred[:, prev_idx:prev_idx + cell_count].reshape(-1, row_count, col_count)
+            grid[:, r[0]:r[1], c[0]:c[1]] = \
+                pred[:, prev_idx:prev_idx + cell_count].reshape(-1, row_count, col_count)
             prev_idx += cell_count
 
         return grid

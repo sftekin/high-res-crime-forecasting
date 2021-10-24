@@ -22,17 +22,15 @@ class Config:
         }
 
         self.batch_gen_params = {
-            "graph": {
-                "test_size": 266,
-                "val_ratio": 0.20,
-                "window_in_len": 10,
-                "window_out_len": 1,
-                "batch_size": 5,
-                "shuffle": False,
-                "normalize_flag": True,
-                "normalize_methods": ["min_max"],
-                "normalization_dims": "all"
-            }
+            "test_size": 266,
+            "val_ratio": 0.20,
+            "window_in_len": 10,
+            "window_out_len": 1,
+            "batch_size": 5,
+            "shuffle": False,
+            "normalize_flag": True,
+            "normalize_methods": ["min_max"],
+            "normalization_dims": "all",
         }
 
         self.graph_trainer_prams = {
@@ -55,5 +53,25 @@ class Config:
                 "filter_sizes": [3, 3, 3],
                 "bias": True,
                 "normalization": "sym",
+            },
+            "convlstm": {
+                "input_size": (100, 66),
+                "window_in": 10,  # should be same with batch_gen["window_in_len"]
+                "window_out": 1,  # should be same with batch_gen["window_out_len"]
+                "num_layers": 3,
+                "encoder_params": {
+                    "input_dim": 1,
+                    "hidden_dims": [1, 16, 32],
+                    "kernel_size": [3, 3, 3],
+                    "bias": False,
+                    "peephole_con": False
+                },
+                "decoder_params": {
+                    "input_dim": 32,
+                    "hidden_dims": [32, 16, 1],
+                    "kernel_size": [3, 3, 3],
+                    "bias": False,
+                    "peephole_con": False
+                }
             }
         }
