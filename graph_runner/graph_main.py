@@ -25,6 +25,7 @@ def run():
     generator = GraphGenerator(node_features=graph_creator.node_features,
                                labels=graph_creator.labels,
                                edge_index=graph_creator.edge_index,
+                               regions=graph_creator.regions,
                                batch_gen_params=config.batch_gen_params["graph"])
 
     model = GraphModel(device=config.graph_trainer_prams["device"],

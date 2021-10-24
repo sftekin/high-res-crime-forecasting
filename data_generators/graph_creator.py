@@ -24,6 +24,7 @@ class GraphCreator(DataCreator):
         self.node_features = None
         self.edge_index = None
         self.labels = None
+        self.regions = None
         self.node2cells = {}
 
         # create the data_dump directory
@@ -35,7 +36,8 @@ class GraphCreator(DataCreator):
         node_features_path = os.path.join(self.graph_save_dir, "node_features.pkl")
         labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
         node2cells_path = os.path.join(self.graph_save_dir, "node2cells.pkl")
-        self.paths = [edge_index_path, node_features_path, labels_path, node2cells_path]
+        regions_path = os.path.join(self.graph_save_dir, "regions.pkl")
+        self.paths = [edge_index_path, node_features_path, labels_path, node2cells_path, regions_path]
 
     def create_graph(self, grid):
         crime_df = super().create()
@@ -47,7 +49,6 @@ class GraphCreator(DataCreator):
             coord_arr[:, 1] = (coord_arr[:, 1] - min_lon) / (max_lon - min_lon)
             crime_df.loc[:, ["Latitude", "Longitude"]] = coord_arr
             self.coord_range = [[0, 1], [0, 1]]
-            print()
 
         # divide grid into regions (rectangles) according to threshold value
         m, n = grid.shape[1:3]
@@ -71,6 +72,7 @@ class GraphCreator(DataCreator):
         self.edge_index = self.create_edge_index(edges)
         self.node_features = self.__create_node_features(crime_df, nodes, polygons)
         self.labels = grid
+        self.regions = regions
         self.__create_node_cells(regions, coord_grid)
 
         if self.plot:
@@ -99,6 +101,8 @@ class GraphCreator(DataCreator):
                 self.labels = pkl.load(f)
             with open(self.paths[3], "rb") as f:
                 self.node2cells = pkl.load(f)
+            with open(self.paths[4], "rb") as f:
+                self.regions = pkl.load(f)
             loaded = True
         return loaded
 
@@ -141,7 +145,7 @@ class GraphCreator(DataCreator):
             self.node2cells[i] = region_cells
 
     def __save_data(self):
-        items = [self.edge_index, self.node_features, self.labels, self.node2cells]
+        items = [self.edge_index, self.node_features, self.labels, self.node2cells, self.regions]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)

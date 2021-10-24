@@ -2,7 +2,6 @@ import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from copy import deepcopy
 
 
 class Trainer:
@@ -22,6 +21,12 @@ class Trainer:
             self.node2cell = {}
             for i, arr in node2cell.items():
                 self.node2cell[i] = torch.from_numpy(arr).float().to(device)
+
+        self.criterion_dict = {
+            "MSE": nn.MSELoss(),
+            "BCE": nn.BCELoss(),
+            "prob_loss": self.__prob_loss
+        }
 
     def fit(self, model, batch_generator):
         model = model.to(self.device)
@@ -113,15 +118,14 @@ class Trainer:
             x, y = [self.__prep_input(i) for i in [x, y]]
             loss = step_fun(model=model,
                             inputs=[x, y, edge_index.to(self.device)],
-                            optimizer=optimizer,
-                            generator=generator)
+                            optimizer=optimizer)
 
             running_loss += loss
         running_loss /= (idx + 1)
 
         return running_loss
 
-    def __train_step(self, model, inputs, optimizer, generator):
+    def __train_step(self, model, inputs, optimizer):
         x, y, edge_index = inputs
         if optimizer:
             optimizer.zero_grad()
@@ -142,39 +146,40 @@ class Trainer:
 
         return loss
 
-    def __val_step(self, model, inputs, optimizer, generator):
+    def __val_step(self, model, inputs, optimizer):
         x, y, edge_index = inputs
         pred = model.forward(x, edge_index)
 
-        loss = self.criterion(pred, y)
+        loss = self.__get_loss(pred, y)
 
         return loss.detach().cpu().numpy()
 
     def __get_loss(self, pred, y, **kwargs):
-        loss_dict = {
-            "MSE": nn.MSELoss(),
-            "BCE": nn.BCELoss(),
-            "prob_loss": self.__prob_loss
-        }
         if self.loss_function in self.custom_losses:
-            loss, pred = loss_dict[self.loss_function](pred=pred, y=y, **kwargs)
+            loss = self.criterion_dict[self.loss_function](pred=pred, y=y, **kwargs)
         else:
-            loss = loss_dict[self.loss_function](pred, y)
+            loss = self.criterion_dict[self.loss_function](pred, y)
 
         return loss
 
     def __prob_loss(self, pred, y):
+        criterion = self.criterion_dict["BCE"]
         pred_mu, pred_sigma, mix_coef = pred
-        probs = []
+        batch_prob = []
         for batch_id in range(pred_mu.shape[0]):
+            prob = []
             for node_id, cell_arr in self.node2cell.items():
                 mu1, mu2 = pred_mu[batch_id, node_id]
                 sigma1, sigma2 = pred_sigma[batch_id, node_id]
 
                 p1 = self.__calc_prob(cell_arr[:, 0], mu1, sigma1)
                 p2 = self.__calc_prob(cell_arr[:, 1], mu2, sigma2)
-
-                probs.append(p1 * p2)
+                prob.append(p1 * p2)
+            prob = torch.cat(prob)
+            batch_prob.append(prob)
+        batch_prob = torch.stack(batch_prob)
+        loss = criterion(batch_prob, y)
+        return loss
 
     def __prep_input(self, x):
         x = x.float().to(self.device)
@@ -188,3 +193,17 @@ class Trainer:
         x2 = (x[:, 1] - mu) / (sigma * 1.41)
         prob = (torch.erf(x2) - torch.erf(x1)) * 0.5
         return prob
+
+    @staticmethod
+    def inverse_label(pred, label_shape, regions):
+        batch_size = pred.shape[0]
+        grid = torch.zeros(batch_size, *label_shape)
+        prev_idx = 0
+        for r, c in regions:
+            row_count = r[1] - r[0]
+            col_count = c[1] - c[0]
+            cell_count = row_count * col_count
+            grid[:, r[0]:r[1], c[0]:c[1]] = pred[:, prev_idx:prev_idx + cell_count].reshape(-1, row_count, col_count)
+            prev_idx += cell_count
+
+        return grid
