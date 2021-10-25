@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from dataset import Dataset
+from batch_generators.dataset import Dataset
 
 
 class GraphDataset(Dataset):

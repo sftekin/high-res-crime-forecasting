@@ -1,4 +1,4 @@
-from config import Config
+from graph_config import GraphConfig
 from data_generators.graph_creator import GraphCreator
 from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
@@ -7,7 +7,7 @@ from models.graph_model import GraphModel
 
 
 def run():
-    config = Config()
+    config = GraphConfig()
     graph_creator = GraphCreator(data_params=config.data_params,
                                  graph_params=config.graph_params)
     loaded = graph_creator.load()
@@ -29,11 +29,11 @@ def run():
                                regions=graph_creator.regions,
                                batch_gen_params=config.batch_gen_params)
 
-    model = GraphModel(device=config.graph_trainer_prams["device"],
+    model = GraphModel(device=config.trainer_params["device"],
                        node_count=graph_creator.node_features.shape[1],
                        **config.model_params["graph_model"])
 
-    trainer = Trainer(**config.graph_trainer_prams, node2cell=graph_creator.node2cells)
+    trainer = Trainer(**config.trainer_params, node2cell=graph_creator.node2cells)
     trainer.fit(model=model, batch_generator=generator)
 
 

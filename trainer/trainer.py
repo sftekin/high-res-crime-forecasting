@@ -113,12 +113,19 @@ class Trainer:
         else:
             step_fun = self.__train_step
         idx = 0
-        for idx, (x, y, edge_index) in enumerate(generator.generate(mode)):
+        for idx, batch in enumerate(generator.generate(mode)):
             print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)),
                   flush=True, end='')
-            x, y = [self.__prep_input(i) for i in [x, y]]
+            if generator.dataset_name == "graph":
+                x, y, edge_index = batch
+                x, y = [self.__prep_input(i) for i in [x, y]]
+                inputs = [x, y, edge_index.to(self.device)]
+            else:
+                x, y = batch
+                x, y = [self.__prep_input(i) for i in [x, y]]
+                inputs = [x, y]
             loss = step_fun(model=model,
-                            inputs=[x, y, edge_index.to(self.device)],
+                            inputs=inputs,
                             optimizer=optimizer)
 
             running_loss += loss
@@ -127,10 +134,15 @@ class Trainer:
         return running_loss
 
     def __train_step(self, model, inputs, optimizer):
-        x, y, edge_index = inputs
         if optimizer:
             optimizer.zero_grad()
-        pred = model.forward(x, edge_index)
+
+        if len(inputs) == 3:
+            x, y, edge_index = inputs
+            pred = model.forward(x, edge_index)
+        else:
+            x, y = inputs
+            pred = model.forward(x)
 
         loss = self.__get_loss(pred, y)
 
@@ -148,9 +160,12 @@ class Trainer:
         return loss
 
     def __val_step(self, model, inputs, optimizer):
-        x, y, edge_index = inputs
-        pred = model.forward(x, edge_index)
-
+        if len(inputs) == 3:
+            x, y, edge_index = inputs
+            pred = model.forward(x, edge_index)
+        else:
+            x, y = inputs
+            pred = model.forward(x)
         loss = self.__get_loss(pred, y)
 
         return loss.detach().cpu().numpy()

@@ -1,4 +1,4 @@
-from config import Config
+from grid_config import GridConfig
 from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
 from models.convlstm import ConvLSTM
@@ -6,7 +6,7 @@ from trainer.trainer import Trainer
 
 
 def run():
-    config = Config()
+    config = GridConfig()
     grid_creator = GridCreator(data_params=config.data_params,
                                grid_params=config.grid_params)
 
@@ -22,10 +22,10 @@ def run():
                                labels=grid,
                                batch_gen_params=config.batch_gen_params)
 
-    model = ConvLSTM(device=config.graph_trainer_prams["device"],
+    model = ConvLSTM(device=config.trainer_params["device"],
                      **config.model_params["convlstm"])
 
-    trainer = Trainer(**config.graph_trainer_prams)
+    trainer = Trainer(**config.trainer_params)
     trainer.fit(model=model, batch_generator=generator)
 
 

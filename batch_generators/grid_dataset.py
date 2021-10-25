@@ -1,5 +1,5 @@
 import torch
-from dataset import Dataset
+from batch_generators.dataset import Dataset
 
 
 class GridDataset(Dataset):

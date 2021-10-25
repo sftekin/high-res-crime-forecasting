@@ -54,13 +54,15 @@ class ConvLSTM(nn.Module):
 
         return block
 
-    def forward(self, x, hidden, **kwargs):
+    def forward(self, x):
         """
         :param input_tensor: 5-D tensor of shape (b, t, m, n, d)
         :param hidden:
         :return: (b, t, m, n, d)
         """
+        x = x.permute(0, 1, 4, 2, 3)
         b, t, d, m, n = x.shape
+        hidden = self.init_hidden(batch_size=b)
 
         # forward encoder
         _, cur_states = self.__forward_block(x, hidden, 'encoder', return_all_layers=True)
@@ -73,7 +75,14 @@ class ConvLSTM(nn.Module):
                                      self.decoder_params['input_dim'], m, n)).to(self.device)
         dec_output, _ = self.__forward_block(decoder_input, cur_states, 'decoder', return_all_layers=False)
 
-        return dec_output
+        output = []
+        for i in range(self.window_out):
+            out = torch.sigmoid(dec_output[:, i])
+            output.append(out)
+        output = torch.stack(output, dim=1)
+        output = output.permute(0, 1, 3, 4, 2)
+
+        return output
 
     def __forward_block(self, input_tensor, hidden_state, block_name, return_all_layers):
         """
