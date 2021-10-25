@@ -14,6 +14,7 @@ class GraphConfig(Config):
             "normalize_flag": False,
             "normalize_methods": ["min_max"],
             "normalization_dims": "all",
+            "dataset_name": "graph"
         }
 
         self.trainer_params = {

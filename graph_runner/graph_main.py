@@ -14,17 +14,19 @@ def run():
     if not loaded:
         grid_creator = GridCreator(data_params=config.data_params, grid_params=config.grid_params)
         if grid_creator.check_is_created():
-            grid = grid_creator.load_grid(mode="all")
+            grid = grid_creator.load_grid(dataset_name="all")
         else:
-            grid = grid_creator.create_grid()
+            grid = grid_creator.create_grid(dataset_name="all")
+        events = grid[..., [2]]
         print(f"Data is not found in {graph_creator.graph_save_dir}. Starting data creation...")
-        graph_creator.create_graph(grid=grid)
+        graph_creator.create_graph(grid=events)
     else:
         print(f"Data found. Data is loaded from {graph_creator.graph_save_dir}.")
 
-    config.batch_gen_params["dataset_name"] = "graph"
+    events = graph_creator.labels > 0
+    events = events.astype(int)
     generator = BatchGenerator(in_data=graph_creator.node_features,
-                               labels=graph_creator.labels,
+                               labels=events,
                                edge_index=graph_creator.edge_index,
                                regions=graph_creator.regions,
                                batch_gen_params=config.batch_gen_params)
