@@ -16,27 +16,33 @@ class GridCreator(DataCreator):
     def __init__(self, data_params, grid_params):
         super(GridCreator, self).__init__(data_params)
         self.m, self.n = grid_params["spatial_res"]
+        self.include_side_info = grid_params["include_side_info"]
 
         # create the data_dump directory
         self.grid_save_dir = os.path.join(self.temp_dir, "grid", f"data_dump_{self.temp_res}_{self.m}_{self.n}")
         if not os.path.exists(self.grid_save_dir):
             os.makedirs(self.grid_save_dir)
 
-    def create_grid(self):
+    def create_grid(self, dataset_name="all"):
         crime_df = super().create()
         crime_types = self.data_columns
 
-        for i in range(len(crime_types)):
-            in_df = crime_df[crime_df[crime_types[i]] == 1]
-            print(crime_types[i])
-            grid = self._convert_grid(in_df=in_df)
+        return_ds = None
+        for crime_name in crime_types:
+            print(crime_name)
+            in_df = crime_df[crime_df[crime_name] == 1]
+            grid = self._convert_grid(in_df=in_df, dataset_name=crime_name)
+            event_counts = grid[..., 2]
             if self.plot:
-                self._plot_surf(grid, title=crime_types[i])
+                self._plot_surf(event_counts, title=crime_name)
+            if dataset_name == crime_name:
+                return_ds = grid
 
-        grid = self._convert_grid(crime_df, mode="all")
+        all_grid = self._convert_grid(crime_df, dataset_name="all")
+        event_counts = all_grid[..., 2]
         if self.plot:
-            self._plot_surf(grid, title="All")
-            flatten_grid = np.sum(grid, axis=0).flatten()
+            self._plot_surf(event_counts, title="All")
+            flatten_grid = np.sum(event_counts, axis=0).flatten()
             zero_ratio = sum(flatten_grid == 0) / len(flatten_grid) * 100
             save_path = os.path.join(self.figures_dir, "all_hist.png")
             plot_hist_dist(flatten_grid,
@@ -44,25 +50,31 @@ class GridCreator(DataCreator):
                            title=f"Zero Ratio {zero_ratio:.2f}",
                            save_path=save_path)
 
+        if dataset_name == "all":
+            return_ds = all_grid
+
         print(f"Data Creation finished, data saved under {self.grid_save_dir}")
-        return grid
+        return return_ds
 
     def check_is_created(self):
         if not os.path.exists(self.grid_save_dir) or \
                 len(os.listdir(self.grid_save_dir)) == 0:
             return False
 
-        grid = self.load_grid(mode="seperated")
-        if grid.shape != (len(self.date_r), self.m, self.n, self.top_k):
+        crime_names = os.listdir(self.grid_save_dir)
+        if len(crime_names) != self.top_k + 1:
             return False
 
-        grid = self.load_grid(mode="all")
-        if grid.shape != (len(self.date_r), self.m, self.n, 1):
-            return False
+        for ds in crime_names:
+            grid = self.load_grid(dataset_name=ds)
+            num_features = 3 if not self.include_side_info else 47
+            if grid.shape != (len(self.date_r), self.m, self.n, num_features):
+                return False
+
         return True
 
-    def load_grid(self, mode="seperated"):
-        npy_paths = self.get_npy_paths(self.grid_save_dir, mode)
+    def load_grid(self, dataset_name):
+        npy_paths = self.get_npy_paths(self.grid_save_dir, dataset_name)
         grid = []
         for path in npy_paths:
             with open(path, "rb") as f:
@@ -70,32 +82,40 @@ class GridCreator(DataCreator):
         grid = np.stack(grid)
         return grid
 
-    def _convert_grid(self, in_df, mode="seperated"):
+    def _convert_grid(self, in_df, dataset_name="all"):
         x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n + 1)
         y_ticks = np.linspace(self.coord_range[0][0], self.coord_range[0][1], self.m + 1)
 
+        if self.include_side_info:
+            num_feats = in_df.shape[1] + 1  # categorical features + event_count + node_location
+        else:
+            num_feats = 3  # event count + node_location
+
         time_len = len(self.date_r)
-        grid = np.zeros((time_len, self.m, self.n))
+        grid = np.zeros((time_len, self.m, self.n, num_feats))
         for j in range(self.m):
             for i in range(self.n):
                 lat_idx = (y_ticks[j] < in_df["Latitude"]) & (in_df["Latitude"] <= y_ticks[j + 1])
                 lon_idx = (x_ticks[i] < in_df["Longitude"]) & (in_df["Longitude"] <= x_ticks[i + 1])
+                centroid = np.array([(x_ticks[i + 1] + x_ticks[i]) / 2, (y_ticks[j] + y_ticks[j + 1]) / 2])
                 cell_arr = in_df[lat_idx & lon_idx].resample(f'{self.temp_res}H')\
                     .size().reindex(self.date_r, fill_value=0).values
-                grid[:, self.m - j - 1, i] = cell_arr  # start from left-bot
-        grid = np.expand_dims(grid, -1)
+                grid[:, self.m - j - 1, i, :2] = centroid
+                grid[:, self.m - j - 1, i, 2] = cell_arr  # start from left-bot
+                if self.include_side_info:
+                    cat_df = in_df[lat_idx & lon_idx].resample(f"{self.temp_res}H").mean().\
+                        reindex(self.date_r, fill_value=0)
+                    cat_df = cat_df.fillna(0)
+                    cat_df = cat_df.drop(columns=["Latitude", "Longitude"])
+                    grid[:, self.m - j - 1, i, 3:] = cat_df.values
 
         # save each time frame in temp directory
-        save_dir = os.path.join(self.grid_save_dir, mode)
+        save_dir = os.path.join(self.grid_save_dir, dataset_name)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         for t in range(time_len):
             grid_t = grid[t]
             save_path = os.path.join(save_dir, f"{t}.npy")
-            if os.path.exists(save_path):
-                with open(save_path, "rb") as f:
-                    saved_arr = np.load(f)
-                grid_t = np.concatenate([saved_arr, grid_t], axis=-1)
             with open(save_path, "wb") as f:
                 np.save(f, grid_t)
         return grid
@@ -208,8 +228,8 @@ class GridCreator(DataCreator):
         self._plot_3d_bar(grid, title=title)
 
     @staticmethod
-    def get_npy_paths(grid_save_dir, mode):
-        npy_path = os.path.join(grid_save_dir, mode, "*.npy")
+    def get_npy_paths(grid_save_dir, dataset_name):
+        npy_path = os.path.join(grid_save_dir, dataset_name, "*.npy")
         grid_files = [file for file in glob.glob(npy_path)]
         file_arr = np.array(grid_files)
         sorted_idx = np.argsort(np.array([int(os.path.basename(path).split(".")[0]) for path in grid_files]))

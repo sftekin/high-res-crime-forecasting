@@ -14,6 +14,7 @@ class GridConfig(Config):
             "normalize_flag": False,
             "normalize_methods": ["min_max"],
             "normalization_dims": "all",
+            "dataset_name": "grid"
         }
 
         self.trainer_params = {
@@ -35,7 +36,7 @@ class GridConfig(Config):
                 "window_out": 1,  # should be same with batch_gen["window_out_len"]
                 "num_layers": 3,
                 "encoder_params": {
-                    "input_dim": 1,
+                    "input_dim": 3,
                     "hidden_dims": [1, 16, 32],
                     "kernel_size": [3, 3, 3],
                     "bias": False,

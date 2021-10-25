@@ -14,12 +14,13 @@ def run():
         print(f"Data is not found in {grid_creator.grid_save_dir}. Starting data creation...")
         grid = grid_creator.create_grid()
     else:
-        grid = grid_creator.load_grid(mode="all")
+        grid = grid_creator.load_grid(dataset_name="all")
         print(f"Data found. Data is loaded from {grid_creator.grid_save_dir}.")
 
-    config.batch_gen_params["dataset_name"] = "grid"
+    events = grid[..., [2]] > True
+    events = events.astype(int)
     generator = BatchGenerator(in_data=grid,
-                               labels=grid,
+                               labels=events,
                                batch_gen_params=config.batch_gen_params)
 
     model = ConvLSTM(device=config.trainer_params["device"],

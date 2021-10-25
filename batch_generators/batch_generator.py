@@ -58,13 +58,15 @@ class BatchGenerator:
                                        window_out_len=self.window_out_len,
                                        batch_size=self.batch_size,
                                        shuffle=self.shuffle)
-            else:
+            elif self.dataset_name == "grid":
                 dataset = GridDataset(in_data=self.in_data[data_ids],
                                       labels=self.labels[data_ids],
                                       window_in_len=self.window_in_len,
                                       window_out_len=self.window_out_len,
                                       batch_size=self.batch_size,
                                       shuffle=self.shuffle)
+            else:
+                raise RuntimeError("dataset name can only be 'graph' or 'grid'")
             graph_dataset[i] = dataset
 
         return graph_dataset

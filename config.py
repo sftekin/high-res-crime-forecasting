@@ -6,10 +6,11 @@ class Config:
             "temporal_res": 24,
             "time_range": ("2015-01-01", "2019-11-01"),
             "top_k": 10,
-            "plot": True
+            "plot": False
         }
         self.grid_params = {
-            "spatial_res": (100, 66)  # 500mx500m
+            "spatial_res": (100, 66),  # 500mx500m
+            "include_side_info": False
         }
 
         self.graph_params = {
