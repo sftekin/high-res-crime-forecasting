@@ -1,6 +1,5 @@
 import os
 import glob
-import pickle as pkl
 
 from graph_config import GraphConfig
 from data_generators.graph_creator import GraphCreator
@@ -27,6 +26,11 @@ def run():
     else:
         print(f"Data found. Data is loaded from {graph_creator.graph_save_dir}.")
 
+    # create save path
+    save_dir = get_save_dir(model_name="graph_model")
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     events = graph_creator.labels > 0
     events = events.astype(int)
     generator = BatchGenerator(in_data=graph_creator.node_features,
@@ -37,28 +41,14 @@ def run():
     model = GraphModel(device=config.trainer_params["device"],
                        node_count=graph_creator.node_features.shape[1],
                        **config.model_params["graph_model"])
-    trainer = Trainer(**config.trainer_params, node2cell=graph_creator.node2cells)
+    trainer = Trainer(**config.trainer_params, save_dir=save_dir,
+                      node2cell=graph_creator.node2cells, regions=graph_creator.regions)
 
-    # train model and get the train, val, train+val losses
-    train_losses = trainer.fit(model=model, batch_generator=generator)
+    # train model
+    trainer.fit(model=model, batch_generator=generator)
 
     # perform prediction
-    test_loss = trainer.transform(model=model, batch_generator=generator)
-    train_losses.append(test_loss)
-
-    # saving model and losses
-    model = model.to("cpu")
-    save_dir = get_save_dir(model_name="graph_model")
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    loss_path = os.path.join(save_dir, "loss.pkl")
-    model_path = os.path.join(save_dir, "model.pkl")
-    trainer_path = os.path.join(save_dir, "trainer.pkl")
-    paths = [loss_path, model_path, trainer_path]
-    objs = [train_losses, model, trainer]
-    for path, obj in zip(paths, objs):
-        with open(path, "wb") as f:
-            pkl.dump(obj, f)
+    trainer.transform(model=model, batch_generator=generator)
 
 
 def get_save_dir(model_name):
