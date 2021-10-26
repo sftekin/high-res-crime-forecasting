@@ -64,12 +64,12 @@ class GraphModel(nn.Module):
         mu_outputs = torch.stack(mu_outputs)
         sigma_outputs = torch.stack(sigma_outputs)
 
-        # create mixing coefficients
-        batch_idx = torch.ones((batch_size, node_count), dtype=torch.int) * torch.arange(batch_size).unsqueeze(dim=1)
-        mix_val = pyg_nn.global_mean_pool(output.view(-1, self.hidden_dims[-1]), batch_idx.flatten().to(self.device))
-        mix_coeff = F.softmax(mix_val, dim=1)
+        # # create mixing coefficients
+        # batch_idx = torch.ones((batch_size, node_count), dtype=torch.int) * torch.arange(batch_size).unsqueeze(dim=1)
+        # mix_val = pyg_nn.global_mean_pool(output.view(-1, self.hidden_dims[-1]), batch_idx.flatten().to(self.device))
+        # mix_coeff = F.softmax(mix_val, dim=1)
 
-        return mu_outputs, sigma_outputs, mix_coeff
+        return mu_outputs, sigma_outputs
 
     def init_bias(self, bias_value):
         self.mu.bias = nn.Parameter(bias_value)

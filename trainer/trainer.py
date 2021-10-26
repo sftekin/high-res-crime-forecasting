@@ -96,7 +96,8 @@ class Trainer:
             torch.cuda.empty_cache()
 
         print('Train finished, best eval lost: {:.5f}'.format(evaluation_val_loss))
-        return train_loss, val_loss, evaluation_val_loss
+        train_losses = [train_loss, val_loss, evaluation_val_loss]
+        return train_losses
 
     def transform(self, model, batch_generator):
         test_loss = self.__step_loop(model=model,
@@ -108,7 +109,7 @@ class Trainer:
 
     def __step_loop(self, model, generator, mode, optimizer):
         running_loss = 0
-        if mode in ['test', 'val']:
+        if mode in ["test", "val", "train_val"]:
             step_fun = self.__val_step
         else:
             step_fun = self.__train_step
@@ -180,14 +181,13 @@ class Trainer:
 
     def __prob_loss(self, pred, y):
         criterion = self.criterion_dict["BCE"]
-        pred_mu, pred_sigma, mix_coef = pred
+        pred_mu, pred_sigma = pred
         batch_prob = []
         for batch_id in range(pred_mu.shape[0]):
             prob = []
             for node_id, cell_arr in self.node2cell.items():
                 mu1, mu2 = pred_mu[batch_id, node_id]
                 sigma1, sigma2 = pred_sigma[batch_id, node_id]
-
                 p1 = self.__calc_prob(cell_arr[:, 0], mu1, sigma1)
                 p2 = self.__calc_prob(cell_arr[:, 1], mu2, sigma2)
                 prob.append(p1 * p2)

@@ -19,7 +19,7 @@ class GraphConfig(Config):
 
         self.trainer_params = {
             "device": 'cuda',
-            "num_epochs": 100,
+            "num_epochs": 1,
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0.00023,
