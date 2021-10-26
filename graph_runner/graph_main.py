@@ -1,5 +1,4 @@
 import os
-import glob
 
 from graph_config import GraphConfig
 from data_generators.graph_creator import GraphCreator
@@ -7,6 +6,7 @@ from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
 from trainer.trainer import Trainer
 from models.graph_model import GraphModel
+from helpers.static_helper import get_save_dir
 
 
 def run():
@@ -49,14 +49,6 @@ def run():
 
     # perform prediction
     trainer.transform(model=model, batch_generator=generator)
-
-
-def get_save_dir(model_name):
-    results_dir = "results"
-    save_dir = os.path.join(results_dir, model_name)
-    num_exp_dir = len(glob.glob(os.path.join(save_dir, 'exp_*')))
-    save_dir = os.path.join(save_dir, "exp_" + str(num_exp_dir + 1))
-    return save_dir
 
 
 if __name__ == '__main__':

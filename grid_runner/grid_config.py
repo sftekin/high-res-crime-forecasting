@@ -11,7 +11,7 @@ class GridConfig(Config):
             "window_out_len": 1,
             "batch_size": 5,
             "shuffle": False,
-            "normalize_flag": False,
+            "normalize_flag": True,
             "normalize_methods": ["min_max"],
             "normalization_dims": "all",
             "dataset_name": "grid"
@@ -23,7 +23,7 @@ class GridConfig(Config):
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0.00023,
-            "learning_rate": 0.001,
+            "learning_rate": 0.0001,
             "clip": 5,
             "early_stop_tolerance": 4,
             "loss_function": "BCE"
@@ -49,5 +49,15 @@ class GridConfig(Config):
                     "bias": False,
                     "peephole_con": False
                 }
+            },
+            "convlstm_one_block": {
+                "input_dim": 3,
+                "input_size": (100, 66),
+                "hidden_dims": [32, 16, 1],
+                "kernel_sizes": [3, 3, 3],
+                "window_in": 10,
+                "window_out": 1,
+                "num_layers": 3,
+                "bias": True
             }
         }
