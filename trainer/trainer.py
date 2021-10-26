@@ -184,8 +184,8 @@ class Trainer:
         optimizer.step()
 
         loss = loss.detach().cpu().numpy()
-        metrics = self.calculate_metrics(pred.detach().cpu().numpy(),
-                                         y.detach().cpu().numpy())
+        metrics = self.calculate_metrics(pred[0].detach().cpu().numpy(),
+                                         y[0].detach().cpu().numpy())
 
         print(f"Loss: {loss}, AP: {metrics['AP']:.5f}")
         return loss, metrics
@@ -198,8 +198,8 @@ class Trainer:
             x, y = inputs
             pred = model.forward(x)
         loss, pred = self.__get_loss(pred, y)
-        metrics = self.calculate_metrics(pred.detach().cpu().numpy(),
-                                         y.detach().cpu().numpy())
+        metrics = self.calculate_metrics(pred[0].detach().cpu().numpy(),
+                                         y[0].detach().cpu().numpy())
         return loss.detach().cpu().numpy(), metrics
 
     def __get_loss(self, pred, y, **kwargs):

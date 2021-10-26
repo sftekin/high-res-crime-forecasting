@@ -20,19 +20,16 @@ class ConvLSTMOneBlock(nn.Module):
         cell_list = []
         for i in range(0, self.num_layers):
             cur_input_dim = input_dim if i == 0 else hidden_dims[i - 1]
-            cell_list += [ConvLSTMCell(input_size=(self.height, self.width),
-                                       input_dim=cur_input_dim,
+            cell_list += [ConvLSTMCell(input_dim=cur_input_dim,
                                        hidden_dim=hidden_dims[i],
                                        kernel_size=kernel_sizes[i],
-                                       bias=bias,
-                                       device=self.device,
-                                       peephole_con=False)]
+                                       bias=bias)]
         self.block = nn.ModuleList(cell_list)
 
     def init_hidden(self, batch_size):
         init_states = []
         for i in range(self.num_layers):
-            init_states.append(self.block[i].init_hidden(batch_size))
+            init_states.append(self.block[i].init_hidden(batch_size, self.input_size))
         return init_states
 
     def forward(self, x):
@@ -59,11 +56,7 @@ class ConvLSTMOneBlock(nn.Module):
 
         block_output = layer_output_list[-1]
 
-        output = []
-        for i in range(self.window_out):
-            out = torch.sigmoid(block_output[:, i])
-            output.append(out)
-        output = torch.stack(output, dim=1)
+        output = torch.sigmoid(block_output)
         output = output.permute(0, 1, 3, 4, 2)
 
         return output

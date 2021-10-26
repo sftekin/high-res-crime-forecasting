@@ -27,19 +27,19 @@ def run():
         print(f"Data found. Data is loaded from {grid_creator.grid_save_dir}.")
 
     # create save path
-    save_dir = get_save_dir(model_name="graph_model")
+    model_name = "convlstm"
+    save_dir = get_save_dir(model_name=model_name)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     events = grid[..., [2]] > True
     events = events.astype(int)
-    generator = BatchGenerator(in_data=grid,
+    generator = BatchGenerator(in_data=grid[..., [2]],
                                labels=events,
                                batch_gen_params=config.batch_gen_params)
 
-    model_name = "convlstm_one_block"
     model = model_dispatcher[model_name](device=config.trainer_params["device"],
-                                         **config.model_params["convlstm_one_block"])
+                                         **config.model_params[model_name])
 
     trainer = Trainer(**config.trainer_params, save_dir=save_dir)
 
