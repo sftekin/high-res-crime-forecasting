@@ -31,7 +31,7 @@ class GridConfig(Config):
 
         self.model_params = {
             "convlstm": {
-                "input_size": (100, 66),
+                "input_size": (50, 33),
                 "window_in": 10,  # should be same with batch_gen["window_in_len"]
                 "window_out": 1,  # should be same with batch_gen["window_out_len"]
                 "num_layers": 3,
@@ -52,7 +52,7 @@ class GridConfig(Config):
             },
             "convlstm_one_block": {
                 "input_dim": 1,
-                "input_size": (100, 66),
+                "input_size": (50, 33),
                 "hidden_dims": [32, 16, 1],
                 "kernel_sizes": [3, 3, 3],
                 "window_in": 10,

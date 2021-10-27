@@ -187,7 +187,7 @@ class Trainer:
         metrics = self.calculate_metrics(pred[0].detach().cpu().numpy(),
                                          y[0].detach().cpu().numpy())
 
-        print(f"Loss: {loss}, AP: {metrics['AP']:.5f}")
+        print(f"Loss: {loss}, AP: {metrics['AP']:.5f} F1: {metrics['f1']:.5f}")
         return loss, metrics
 
     def __val_step(self, model, inputs, optimizer):
@@ -265,7 +265,7 @@ class Trainer:
         pred, label = pred.flatten(), label.flatten()
         ap = average_precision_score(y_true=label, y_score=pred)
 
-        thresholds = np.linspace(0, 1, 100)
+        thresholds = np.linspace(pred.min(), pred.max(), 100)
         f1_list = []
         for thr in thresholds:
             bin_pred = (pred >= thr).astype(int)
