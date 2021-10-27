@@ -16,6 +16,7 @@ Test metrics: AP:0.60869, F1:0.63443, Confusion_matrix: [TN:1408, FN:80, FP:49, 
 
 
 **graph-model (100x66)**
+
 Epoch: 100, Train_loss: 0.22112, Validation_loss: 0.22268, Took 761.412 seconds.
 Train metrics: AP:0.27534, F1:0.37667, Confusion_matrix: [TN:25123, FN:5427, FP:596, TP:1826]
 Validation metrics: AP:0.27431, F1:0.37719, Confusion_matrix: [TN:25067, FN:5404, FP:593, TP:1822]
