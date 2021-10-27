@@ -9,6 +9,8 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import average_precision_score, f1_score, confusion_matrix
 
+from helpers.graph_helper import get_probs
+
 
 class Trainer:
     def __init__(self, num_epochs, early_stop_tolerance, clip, optimizer, loss_function,
@@ -212,19 +214,7 @@ class Trainer:
 
     def __prob_loss(self, pred, y):
         criterion = self.criterion_dict["BCE"]
-        pred_mu, pred_sigma = pred
-        batch_prob = []
-        for batch_id in range(pred_mu.shape[0]):
-            prob = []
-            for node_id, cell_arr in self.node2cell.items():
-                mu1, mu2 = pred_mu[batch_id, node_id]
-                sigma1, sigma2 = pred_sigma[batch_id, node_id]
-                p1 = self.__calc_prob(cell_arr[:, 0], mu1, sigma1)
-                p2 = self.__calc_prob(cell_arr[:, 1], mu2, sigma2)
-                prob.append(p1 * p2)
-            prob = torch.cat(prob)
-            batch_prob.append(prob)
-        batch_prob = torch.stack(batch_prob)
+        batch_prob = get_probs(pred, node2cell=self.node2cell)
         loss = criterion(batch_prob, y)
         return loss, batch_prob
 
@@ -238,27 +228,6 @@ class Trainer:
         for path, obj in zip([stats_path, model_path], [self.running_statistics, model]):
             with open(path, "wb") as f:
                 pkl.dump(obj, f)
-
-    @staticmethod
-    def __calc_prob(x, mu, sigma):
-        x1 = (x[:, 0] - mu) / (sigma * 1.41)
-        x2 = (x[:, 1] - mu) / (sigma * 1.41)
-        prob = (torch.erf(x2) - torch.erf(x1)) * 0.5
-        return prob
-
-    @staticmethod
-    def inverse_label(pred, label_shape, regions):
-        batch_size = pred.shape[0]
-        grid = torch.zeros(batch_size, *label_shape)
-        prev_idx = 0
-        for r, c in regions:
-            row_count = r[1] - r[0]
-            col_count = c[1] - c[0]
-            cell_count = row_count * col_count
-            grid[:, r[0]:r[1], c[0]:c[1]] = \
-                pred[:, prev_idx:prev_idx + cell_count].reshape(-1, row_count, col_count)
-            prev_idx += cell_count
-        return grid
 
     @staticmethod
     def calculate_metrics(pred, label):
