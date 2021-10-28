@@ -63,7 +63,7 @@ class Trainer:
 
         tolerance = 0
         best_epoch = 0
-        best_val_loss = 1e6
+        best_val_ap = 0
         best_dict = model.state_dict()
         for epoch in range(self.num_epochs):
             # train and validation loop
@@ -97,9 +97,9 @@ class Trainer:
             # checkpoint
             self.__save_progress(model)
 
-            if val_loss < best_val_loss:
+            if val_metrics["AP"] > best_val_ap:
                 best_epoch = epoch + 1
-                best_val_loss = val_loss
+                best_val_ap = val_metrics["AP"]
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
@@ -186,8 +186,8 @@ class Trainer:
         optimizer.step()
 
         loss = loss.detach().cpu().numpy()
-        metrics = self.calculate_metrics(pred[0].detach().cpu().numpy(),
-                                         y[0].detach().cpu().numpy())
+        metrics = self.calculate_metrics(pred.detach().cpu().numpy(),
+                                         y.detach().cpu().numpy())
 
         print(f"Loss: {loss}, AP: {metrics['AP']:.5f} F1: {metrics['f1']:.5f}")
         return loss, metrics
@@ -200,8 +200,8 @@ class Trainer:
             x, y = inputs
             pred = model.forward(x)
         loss, pred = self.__get_loss(pred, y)
-        metrics = self.calculate_metrics(pred[0].detach().cpu().numpy(),
-                                         y[0].detach().cpu().numpy())
+        metrics = self.calculate_metrics(pred.detach().cpu().numpy(),
+                                         y.detach().cpu().numpy())
         return loss.detach().cpu().numpy(), metrics
 
     def __get_loss(self, pred, y, **kwargs):
