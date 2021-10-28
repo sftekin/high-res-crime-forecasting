@@ -1,13 +1,13 @@
 import os
+import pickle as pkl
 
 import numpy as np
-
 from stats_config import StatsConfig
 from data_generators.grid_creator import GridCreator
 from models.arima import ARIMA
 from sklearn.metrics import f1_score, average_precision_score
 
-from helpers.static_helper import calculate_metrics
+from helpers.static_helper import calculate_metrics, get_save_dir
 
 model_dispatcher = {
     "arima": ARIMA
@@ -35,6 +35,11 @@ def run():
     model_name = "arima"
     model_params = config.model_params[model_name]
     model = model_dispatcher[model_name](**model_params)
+
+    # create save path
+    save_dir = get_save_dir(model_name=model_name)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
     time_len, height, width, feat_count = grid.shape
     grid_flatten = grid.reshape(-1, height * width, feat_count)
@@ -79,6 +84,10 @@ def run():
         results[key] = calculate_metrics(pred=pred_grid, label=label)
 
     print(results)
+
+    save_path = os.path.join(save_dir, "results.pkl")
+    with open(save_path, "wb") as f:
+        pkl.dump(results, f)
 
 
 def fit(model, endog, exog, time_len):

@@ -28,10 +28,10 @@ graph_model: 0.22, 0.22
 
 |  Model Name 	|    BCE	|  AP 	    |    F1 	|
 |---	        |---    	|---    	|---	    |
-|  Convlstm 	|   0.	|   0.	|   0.	|
+|  Convlstm 	|   0.	|   0.0186	|   0.0365	|
 |  Graph Model	|   0.342	|   0.274	|   0.387	|
 
-**Validation**
+**Test**
 
 |  Model Name 	|    BCE	|  AP 	    |    F1 	|
 |---	        |---    	|---    	|---	    |
