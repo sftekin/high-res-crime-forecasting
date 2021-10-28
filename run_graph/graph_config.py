@@ -25,7 +25,7 @@ class GraphConfig(Config):
             "weight_decay": 0.00023,
             "learning_rate": 0.0003,
             "clip": 5,
-            "early_stop_tolerance": 4,
+            "early_stop_tolerance": 10,
             "loss_function": "prob_loss"
         }
 

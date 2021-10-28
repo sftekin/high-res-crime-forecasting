@@ -3,13 +3,12 @@ import time
 import pickle as pkl
 from copy import deepcopy
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.metrics import average_precision_score, f1_score, confusion_matrix
 
 from helpers.graph_helper import get_probs
+from helpers.static_helper import calculate_metrics
 
 
 class Trainer:
@@ -186,8 +185,8 @@ class Trainer:
         optimizer.step()
 
         loss = loss.detach().cpu().numpy()
-        metrics = self.calculate_metrics(pred.detach().cpu().numpy(),
-                                         y.detach().cpu().numpy())
+        metrics = calculate_metrics(pred.detach().cpu().numpy(),
+                                    y.detach().cpu().numpy())
 
         print(f"Loss: {loss}, AP: {metrics['AP']:.5f} F1: {metrics['f1']:.5f}")
         return loss, metrics
@@ -200,8 +199,8 @@ class Trainer:
             x, y = inputs
             pred = model.forward(x)
         loss, pred = self.__get_loss(pred, y)
-        metrics = self.calculate_metrics(pred.detach().cpu().numpy(),
-                                         y.detach().cpu().numpy())
+        metrics = calculate_metrics(pred.detach().cpu().numpy(),
+                                    y.detach().cpu().numpy())
         return loss.detach().cpu().numpy(), metrics
 
     def __get_loss(self, pred, y, **kwargs):
@@ -228,34 +227,6 @@ class Trainer:
         for path, obj in zip([stats_path, model_path], [self.running_statistics, model]):
             with open(path, "wb") as f:
                 pkl.dump(obj, f)
-
-    @staticmethod
-    def calculate_metrics(pred, label):
-        pred, label = pred.flatten(), label.flatten()
-        ap = average_precision_score(y_true=label, y_score=pred)
-
-        thresholds = np.linspace(pred.min(), pred.max(), 100)
-        f1_list = []
-        for thr in thresholds:
-            bin_pred = (pred >= thr).astype(int)
-            f1_list.append(f1_score(label, bin_pred))
-        f1_arr = np.array(f1_list)
-        best_threshold = thresholds[np.argmax(f1_arr)]
-        best_f1 = np.max(f1_arr)
-
-        bin_pred = (pred >= best_threshold).astype(int)
-        tn, fn, fp, tp = confusion_matrix(y_true=label, y_pred=bin_pred).flatten()
-
-        metrics = {
-            "AP": ap,
-            "f1": best_f1,
-            "tn": tn,
-            "fn": fn,
-            "fp": fp,
-            "tp": tp
-        }
-
-        return metrics
 
     @staticmethod
     def store_statistics(running, new_metric):

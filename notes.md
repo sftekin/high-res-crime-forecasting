@@ -19,7 +19,7 @@ graph_model: 0.22, 0.22
 |  Model Name 	|    BCE	|  AP 	    |    F1 	|
 |---	        |---    	|---    	|---	    |
 |  Convlstm 	|   0.429	|   0.608	|   0.634	|
-|  Graph Model	|   0.45	|   0.563	|   0.653	|
+|  Graph Model	|   0.736	|   0.609	|   0.654	|
 
 
 ## (100x66) Experiments 
