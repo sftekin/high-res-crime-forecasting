@@ -1,5 +1,5 @@
 import os
-
+import pickle as pkl
 import numpy as np
 
 from stats_config import StatsConfig
@@ -67,6 +67,12 @@ def run():
 
     predictions = [train_pred, val_pred, train_val_pred, test_pred]
     labels = [ts[..., target_idx] for ts in [train_ts, val_ts, train_val_ts, test_ts]]
+    with open("preds.pkl", "wb") as f:
+        pkl.dump(predictions, f)
+
+    with open("labels.pkl", "wb") as f:
+        pkl.dump(labels, f)
+
     results = {
         "train": None,
         "val": None,
@@ -76,7 +82,7 @@ def run():
     for i, key in enumerate(results.keys()):
         pred_grid = np.stack(predictions[i], axis=1)
         label = (labels[i] > 0).astype(int)
-        results[key] = calculate_metrics(pred=pred_grid, label=label)
+        results[key] = calculate_metrics(pred=pred_grid[:-1], label=label[1:])
 
     print(results)
 
