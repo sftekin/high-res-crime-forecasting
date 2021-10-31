@@ -3,9 +3,11 @@ class Config:
         self.data_params = {
             "data_raw_path": "chicago_raw.csv",
             "coord_range": [[41.60, 42.05], [-87.9, -87.5]],
-            "temporal_res": 24,
-            "time_range": ("2015-01-01", "2019-11-01"),
-            "top_k": 10,
+            "temporal_res": 1,
+            "time_range": ("2015-01-01", "2016-01-01"),
+            "crime_categories": ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE',
+                                 'NARCOTICS', 'ROBBERY', 'ASSAULT',
+                                 'DECEPTIVE PRACTICE', 'BURGLARY'],
             "plot": True
         }
         self.grid_params = {
@@ -17,7 +19,7 @@ class Config:
             "event_threshold": 5000,
             "include_side_info": False,
             "grid_name": "all",
-            "min_cell_size": (5, 5),
+            "min_cell_size": (2, 2),
             "normalize_coords": True
         }
 

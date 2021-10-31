@@ -21,10 +21,18 @@ def run():
 
     if not grid_creator.check_is_created():
         print(f"Data is not found in {grid_creator.grid_save_dir}. Starting data creation...")
-        grid = grid_creator.create_grid()
-    else:
-        grid = grid_creator.load_grid(dataset_name="all")
-        print(f"Data found. Data is loaded from {grid_creator.grid_save_dir}.")
+        grid_creator.create_grid()
+
+    print(f"Data is found.")
+    for crime in grid_creator.crime_types:
+        grid_paths = grid_creator.get_paths(dataset_name=crime)
+        grid = []
+        for path in grid_paths:
+            with open(path, "rb") as f:
+                grid.append(np.load(f))
+        grid = np.stack(grid)
+
+    # todo: train val test size
 
     test_size = config.batch_gen_params["test_size"]
     val_ratio = config.batch_gen_params["val_ratio"]
