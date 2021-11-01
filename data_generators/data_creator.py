@@ -11,7 +11,7 @@ class DataCreator:
     def __init__(self, data_params):
         self.__data_path = os.path.join(self.dataset_dir, data_params["data_raw_path"])
         self.plot = data_params["plot"]
-        self.top_k = data_params["top_k"]  # is the feature count of grid
+        self.crime_types = data_params["crime_categories"]  # is the feature count of grid
 
         # spatial settings
         self.coord_range = data_params["coord_range"]  # [[41.60, 42.05], [-87.9, -87.5]]  # Lat-Lon
@@ -19,7 +19,8 @@ class DataCreator:
         # temporal settings
         self.temp_res = data_params["temporal_res"]
         self.start_date, self.end_date = data_params["time_range"]
-        self.date_r = pd.date_range(start=self.start_date, end=self.end_date, freq=f'{self.temp_res}H')
+        self.date_r = pd.date_range(start=self.start_date, end=self.end_date,
+                                    freq=f'{self.temp_res}H', closed="left")
 
         self.data_columns = None
         self.num_process = 8
@@ -52,9 +53,8 @@ class DataCreator:
         crime_df['Location Description'] = pd.Categorical(crime_df['Location Description'])
         crime_df['Description'] = pd.Categorical(crime_df['Description'])
 
-        # Take top 10 crimes
-        top10crime_types = list(crime_df["Primary Type"].value_counts()[:self.top_k].index)
-        crime_df = crime_df[crime_df["Primary Type"].isin(top10crime_types)]
+        # Take selected crimes
+        crime_df = crime_df[crime_df["Primary Type"].isin(self.crime_types)]
 
         # remove unused categories
         crime_df_copy = crime_df.copy()

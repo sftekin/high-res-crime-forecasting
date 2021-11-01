@@ -1,7 +1,7 @@
 import os
 import pickle as pkl
-
 import numpy as np
+
 from stats_config import StatsConfig
 from data_generators.grid_creator import GridCreator
 from models.arima import ARIMA
@@ -21,10 +21,18 @@ def run():
 
     if not grid_creator.check_is_created():
         print(f"Data is not found in {grid_creator.grid_save_dir}. Starting data creation...")
-        grid = grid_creator.create_grid()
-    else:
-        grid = grid_creator.load_grid(dataset_name="all")
-        print(f"Data found. Data is loaded from {grid_creator.grid_save_dir}.")
+        grid_creator.create_grid()
+
+    print(f"Data is found.")
+    for crime in grid_creator.crime_types:
+        grid_paths = grid_creator.get_paths(dataset_name=crime)
+        grid = []
+        for path in grid_paths:
+            with open(path, "rb") as f:
+                grid.append(np.load(f))
+        grid = np.stack(grid)
+
+    # todo: train val test size
 
     test_size = config.batch_gen_params["test_size"]
     val_ratio = config.batch_gen_params["val_ratio"]
@@ -72,6 +80,12 @@ def run():
 
     predictions = [train_pred, val_pred, train_val_pred, test_pred]
     labels = [ts[..., target_idx] for ts in [train_ts, val_ts, train_val_ts, test_ts]]
+    with open("preds.pkl", "wb") as f:
+        pkl.dump(predictions, f)
+
+    with open("labels.pkl", "wb") as f:
+        pkl.dump(labels, f)
+
     results = {
         "train": None,
         "val": None,
@@ -81,7 +95,7 @@ def run():
     for i, key in enumerate(results.keys()):
         pred_grid = np.stack(predictions[i], axis=1)
         label = (labels[i] > 0).astype(int)
-        results[key] = calculate_metrics(pred=pred_grid, label=label)
+        results[key] = calculate_metrics(pred=pred_grid[:-1], label=label[1:])
 
     print(results)
 

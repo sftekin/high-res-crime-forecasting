@@ -23,7 +23,7 @@ class GridCreator(DataCreator):
         if not os.path.exists(self.grid_save_dir):
             os.makedirs(self.grid_save_dir)
 
-    def create_grid(self, dataset_name="all"):
+    def create_grid(self):
         crime_df = super().create()
         crime_types = self.data_columns
 
@@ -35,8 +35,6 @@ class GridCreator(DataCreator):
             event_counts = grid[..., 2]
             if self.plot:
                 self._plot_surf(event_counts, title=crime_name)
-            if dataset_name == crime_name:
-                return_ds = grid
 
         all_grid = self._convert_grid(crime_df, dataset_name="all")
         event_counts = all_grid[..., 2]
@@ -50,11 +48,7 @@ class GridCreator(DataCreator):
                            title=f"Zero Ratio {zero_ratio:.2f}",
                            save_path=save_path)
 
-        if dataset_name == "all":
-            return_ds = all_grid
-
         print(f"Data Creation finished, data saved under {self.grid_save_dir}")
-        return return_ds
 
     def check_is_created(self):
         if not os.path.exists(self.grid_save_dir) or \
@@ -62,25 +56,25 @@ class GridCreator(DataCreator):
             return False
 
         crime_names = os.listdir(self.grid_save_dir)
-        if len(crime_names) != self.top_k + 1:
+        if len(crime_names) != len(self.crime_types) + 1:
             return False
 
         for ds in crime_names:
-            grid = self.load_grid(dataset_name=ds)
+            grid_paths = self.get_paths(dataset_name=ds)
+            if len(grid_paths) != len(self.date_r):
+                return False
+            sample_path = grid_paths[-1]
+            with open(sample_path, "rb") as f:
+                grid = np.load(f)
             num_features = 3 if not self.include_side_info else 47
             if grid.shape != (len(self.date_r), self.m, self.n, num_features):
                 return False
 
         return True
 
-    def load_grid(self, dataset_name):
+    def get_paths(self, dataset_name):
         npy_paths = self.get_npy_paths(self.grid_save_dir, dataset_name)
-        grid = []
-        for path in npy_paths:
-            with open(path, "rb") as f:
-                grid.append(np.load(f))
-        grid = np.stack(grid)
-        return grid
+        return npy_paths
 
     def _convert_grid(self, in_df, dataset_name="all"):
         x_ticks = np.linspace(self.coord_range[1][0], self.coord_range[1][1], self.n + 1)
