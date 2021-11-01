@@ -5,8 +5,9 @@ class StatsConfig(Config):
     def __init__(self):
         super(StatsConfig, self).__init__()
         self.batch_gen_params = {
-            "test_size": 266,
-            "val_ratio": 0.20,
+            "train_size": 6.5,  # months
+            "val_size": 0.5,  # months
+            "test_size": 1,  # months
         }
 
         self.model_params = {

@@ -67,7 +67,7 @@ class GridCreator(DataCreator):
             with open(sample_path, "rb") as f:
                 grid = np.load(f)
             num_features = 3 if not self.include_side_info else 47
-            if grid.shape != (len(self.date_r), self.m, self.n, num_features):
+            if grid.shape != (self.m, self.n, num_features):
                 return False
 
         return True

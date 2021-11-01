@@ -3,7 +3,7 @@ class Config:
         self.data_params = {
             "data_raw_path": "chicago_raw.csv",
             "coord_range": [[41.60, 42.05], [-87.9, -87.5]],
-            "temporal_res": 1,
+            "temporal_res": 3,
             "time_range": ("2015-01-01", "2016-01-01"),
             "crime_categories": ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE',
                                  'NARCOTICS', 'ROBBERY', 'ASSAULT',
