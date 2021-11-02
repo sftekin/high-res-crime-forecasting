@@ -32,16 +32,16 @@ def run():
     model_name = "convlstm"
     save_dir = get_save_dir(model_name=model_name)
 
-    data_len = config.batch_gen_params["train_size"] + \
-               config.batch_gen_params["val_size"] + config.batch_gen_params["test_size"]
+    data_len = config.experiment_params["train_size"] + \
+               config.experiment_params["val_size"] + config.experiment_params["test_size"]
     for i in range(0, int(12 - data_len) + 1):
         stride_offset = pd.DateOffset(months=i)
         start_date = grid_creator.date_r[0] + stride_offset
         start_date_str = start_date.strftime("%Y-%m-%d")
 
-        train_end_date = get_set_end_date(set_size=config.batch_gen_params["train_size"], start_date=start_date)
-        val_end_date = get_set_end_date(set_size=config.batch_gen_params["val_size"], start_date=train_end_date)
-        test_end_date = get_set_end_date(set_size=config.batch_gen_params["test_size"], start_date=val_end_date)
+        train_end_date = get_set_end_date(set_size=config.experiment_params["train_size"], start_date=start_date)
+        val_end_date = get_set_end_date(set_size=config.experiment_params["val_size"], start_date=train_end_date)
+        test_end_date = get_set_end_date(set_size=config.experiment_params["test_size"], start_date=val_end_date)
 
         train_ids = get_set_ids(grid_creator.date_r, start_date, train_end_date)
         val_ids = get_set_ids(grid_creator.date_r, train_end_date, val_end_date)

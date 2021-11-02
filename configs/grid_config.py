@@ -4,10 +4,13 @@ from configs.config import Config
 class GridConfig(Config):
     def __init__(self):
         super(GridConfig, self).__init__()
-        self.batch_gen_params = {
+        self.experiment_params = {
             "train_size": 6.5,  # months
             "val_size": 0.5,  # months
             "test_size": 1,  # months
+        }
+
+        self.batch_gen_params = {
             "window_in_len": 10,
             "window_out_len": 1,
             "batch_size": 16,
@@ -37,15 +40,15 @@ class GridConfig(Config):
                 "window_out": 1,  # should be same with batch_gen["window_out_len"]
                 "num_layers": 3,
                 "encoder_params": {
-                    "input_dim": 1,
-                    "hidden_dims": [1, 16, 32],
+                    "input_dim": 8,
+                    "hidden_dims": [8, 16, 32],
                     "kernel_size": [5, 3, 3],
                     "bias": False,
                     "peephole_con": False
                 },
                 "decoder_params": {
                     "input_dim": 32,
-                    "hidden_dims": [32, 16, 1],
+                    "hidden_dims": [32, 16, 8],
                     "kernel_size": [3, 3, 3],
                     "bias": False,
                     "peephole_con": False

@@ -42,8 +42,8 @@ def run():
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    data_len = config.batch_gen_params["train_size"] + \
-               config.batch_gen_params["val_size"] + config.batch_gen_params["test_size"]
+    data_len = config.experiment_params["train_size"] + \
+               config.experiment_params["val_size"] + config.experiment_params["test_size"]
     for i in range(0, int(12 - data_len) + 1):
         if i == 0:
             continue

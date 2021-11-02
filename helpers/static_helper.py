@@ -3,7 +3,7 @@ import glob
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score, f1_score, confusion_matrix
+from sklearn.metrics import average_precision_score, f1_score, confusion_matrix, roc_curve
 
 
 def get_save_dir(model_name):
@@ -15,8 +15,27 @@ def get_save_dir(model_name):
 
 
 def calculate_metrics(pred, label):
-    pred, label = pred.flatten(), label.flatten()
-    ap = average_precision_score(y_true=label, y_score=pred)
+    target_count = pred.shape[-1]
+    if target_count > 1:
+        # multi label
+        pred, label = pred.reshape(-1, target_count), label.reshape(-1, target_count)
+        # find best threshold
+        for i in range(target_count):
+            fpr, tpr, thresholds = roc_curve(y_true=label[:, i], y_score=pred[:, i])
+            opt_thr = thresholds[np.argmax(tpr - fpr)]
+            pred[:, i] = (pred[:, i] >= opt_thr).astype(int)
+        micro_f1 = f1_score(label, pred, average="micro")
+        macro_f1 = f1_score(label, pred, average="macro")
+        tn, fn, fp, tp = confusion_matrix(y_true=label, y_pred=pred).flatten()
+    else:
+        pred, label = pred.flatten(), label.flatten()
+
+        # find best threshold
+        fpr, tpr, thresholds = roc_curve(y_true=label, y_score=pred)
+        opt_thr = thresholds[np.argmax(tpr - fpr)]
+        pred = (pred >= opt_thr).astype(int)
+
+        tn, fn, fp, tp = confusion_matrix(y_true=label, y_pred=pred).flatten()
 
     thresholds = np.linspace(pred.min(), pred.max(), 30)
     f1_list = []

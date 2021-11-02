@@ -4,10 +4,13 @@ from configs.config import Config
 class GraphConfig(Config):
     def __init__(self):
         super(GraphConfig, self).__init__()
-        self.batch_gen_params = {
+        self.experiment_params = {
             "train_size": 6.5,  # months
             "val_size": 0.5,  # months
             "test_size": 1,  # months
+        }
+
+        self.batch_gen_params = {
             "window_in_len": 10,
             "window_out_len": 1,
             "batch_size": 5,

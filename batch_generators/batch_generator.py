@@ -14,8 +14,6 @@ class BatchGenerator:
         self.set_ids = set_ids
 
         self.dataset_name = batch_gen_params["dataset_name"]
-        self.test_size = batch_gen_params["test_size"]
-        self.val_ratio = batch_gen_params["val_ratio"]
         self.window_in_len = batch_gen_params["window_in_len"]
         self.window_out_len = batch_gen_params["window_out_len"]
         self.batch_size = batch_gen_params["batch_size"]

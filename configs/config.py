@@ -26,3 +26,4 @@ class Config:
         self.batch_gen_params = {}
         self.trainer_params = {}
         self.model_params = {}
+        self.experiment_params = {}

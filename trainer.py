@@ -6,14 +6,14 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import matplotlib.pyplot as plt
 
 from helpers.graph_helper import get_probs
-from helpers.static_helper import calculate_metrics
 
 
 class Trainer:
     def __init__(self, num_epochs, early_stop_tolerance, clip, optimizer, loss_function,
-                 learning_rate, weight_decay, momentum, device, save_dir, node2cell=None, regions=None):
+                 learning_rate, weight_decay, momentum, device, save_dir, node2cell=None, regions=None, plot_lr=True):
         self.num_epochs = num_epochs
         self.clip = clip
         self.optimizer = optimizer
@@ -24,12 +24,14 @@ class Trainer:
         self.device = torch.device(device)
         self.loss_function = loss_function
         self.save_dir = save_dir
+        self.plot_lr = plot_lr
         self.custom_losses = ["prob_loss"]
+        self.regions = regions
+
         if node2cell is not None:
             self.node2cell = {}
             for i, arr in node2cell.items():
                 self.node2cell[i] = torch.from_numpy(arr).float().to(device)
-        self.regions = regions
 
         self.criterion_dict = {
             "MSE": nn.MSELoss(),
@@ -37,16 +39,8 @@ class Trainer:
             "prob_loss": self.__prob_loss
         }
 
-        self.running_statistics = {
-            "train_loss": [],
-            "val_loss": [],
-            "train_metrics": [],
-            "validation_metrics": [],
-            "eval_loss": 0,
-            "eval_metric": {},
-            "test_loss": 0,
-            "test_metric": {}
-        }
+        self.model_step_preds = {key: {} for key in ["train", "validation", "train_val", "test"]}
+        self.model_step_labels = deepcopy(self.model_step_preds)
 
     def fit(self, model, batch_generator):
         model = model.to(self.device)
@@ -60,115 +54,108 @@ class Trainer:
                                   lr=self.learning_rate,
                                   momentum=self.momentum)
 
+        train_loss = []
+        val_loss = []
         tolerance = 0
         best_epoch = 0
-        best_val_ap = 0
+        best_val_loss = 1e9
         best_dict = model.state_dict()
         for epoch in range(self.num_epochs):
             # train and validation loop
             start_time = time.time()
 
             # train
-            train_loss, train_metrics = self.__step_loop(model=model,
-                                                         generator=batch_generator,
-                                                         mode='train',
-                                                         optimizer=optimizer)
+            running_train_loss = self.__step_loop(model=model,
+                                                  generator=batch_generator,
+                                                  mode='train',
+                                                  optimizer=optimizer)
 
             # validation
-            val_loss, val_metrics = self.__step_loop(model=model,
-                                                     generator=batch_generator,
-                                                     mode='val',
-                                                     optimizer=None)
+            running_val_loss = self.__step_loop(model=model,
+                                                generator=batch_generator,
+                                                mode='val',
+                                                optimizer=None)
 
             epoch_time = time.time() - start_time
 
             message_str = "\nEpoch: {}, Train_loss: {:.5f}, Validation_loss: {:.5f}, Took {:.3f} seconds."
             print(message_str.format(epoch + 1, train_loss, val_loss, epoch_time))
-            self.print_metrics(train_metrics, metric_name="Train")
-            self.print_metrics(val_metrics, metric_name="Validation")
-
-            # save the losses
-            self.running_statistics["train_loss"].append(train_loss)
-            self.running_statistics["val_loss"].append(val_loss)
-            self.running_statistics["train_metrics"].append(train_metrics)
-            self.running_statistics["validation_metrics"].append(val_metrics)
 
             # checkpoint
-            self.__save_progress(model)
+            self.__save_model(model)
+            train_loss.append(running_train_loss)
+            val_loss.append(running_val_loss)
 
-            if val_metrics["AP"] > best_val_ap:
+            if val_loss < best_val_loss:
                 best_epoch = epoch + 1
-                best_val_ap = val_metrics["AP"]
+                best_val_loss = val_loss
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
                 tolerance += 1
 
+            # perform predictions with the best model
             if tolerance > self.tolerance or epoch == self.num_epochs - 1:
                 model.load_state_dict(best_dict)
+                train_loss, val_loss, eval_loss = [self.__step_loop(model=model,
+                                                                    generator=batch_generator,
+                                                                    mode=mode,
+                                                                    optimizer=None,
+                                                                    collect_outputs=True) for mode in
+                                                   ["train", "val", "train_val"]]
 
-                eval_loss, eval_metrics = self.__step_loop(model=model,
-                                                           generator=batch_generator,
-                                                           mode='train_val',
-                                                           optimizer=None)
-                # save eval stats
-                self.running_statistics["eval_loss"] = eval_loss
-                self.running_statistics["eval_metric"] = eval_metrics
+                message_str = "Early exiting from epoch: {}, \nTrain Loss: {:5f}, Val Loss: {:5f}, Eval Loss: {:.5f}."
+                print(message_str.format(best_epoch, train_loss, val_loss, eval_loss))
+
                 # checkpoint
-                self.__save_progress(model)
+                self.__save_model(model)
+                self.__save_outputs()
                 break
 
             torch.cuda.empty_cache()
 
-        message_str = "Early exiting from epoch: {}, Eval Loss: {:.5f}."
-        print(message_str.format(best_epoch, self.running_statistics["eval_loss"]))
-        self.print_metrics(self.running_statistics["eval_metric"], metric_name="Evaluation")
+        if self.plot_lr:
+            fig, ax = plt.subplots()
+            ax.plot(list(range(epoch + 1)), train_loss, label="train_loss")
+            ax.plot(list(range(epoch + 1)), val_loss, label="val_loss")
+            ax.legend()
+            ax.grid(True)
+            ax.set_title(f"Learning Curve lr: {self.learning_rate:.5f}")
+            ax.set_xlabel("Epoch")
+            ax.set_ylabel("Loss")
+            ax.set_yscale("log")
+            plt.show()
 
     def transform(self, model, batch_generator):
-        test_loss, test_metrics = self.__step_loop(model=model,
-                                                   generator=batch_generator,
-                                                   mode='test',
-                                                   optimizer=None)
+        test_loss = self.__step_loop(model=model,
+                                     generator=batch_generator,
+                                     mode='test',
+                                     optimizer=None,
+                                     collect_outputs=True)
         print('Test finished, test loss: {:.5f}'.format(test_loss))
-        self.print_metrics(test_metrics, metric_name="Test")
-        self.running_statistics["test_loss"] = test_loss
-        self.running_statistics["test_metrics"] = test_metrics
-        self.__save_progress(model)
+        self.__save_model(model)
+        self.__save_outputs()
 
-    def __step_loop(self, model, generator, mode, optimizer):
-        if mode in ["test", "val", "train_val"]:
-            step_fun = self.__val_step
-        else:
-            step_fun = self.__train_step
-        idx = 0
+    def __step_loop(self, model, generator, mode, optimizer, collect_outputs=False):
         running_loss = 0
-        running_stats = {}
         for idx, batch in enumerate(generator.generate(mode)):
-            print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)),
-                  flush=True, end='')
-            if generator.dataset_name == "graph":
-                x, y, edge_index = batch
-                x, y = [self.__prep_input(i) for i in [x, y]]
-                inputs = [x, y, edge_index.to(self.device)]
-            else:
-                x, y = batch
-                x, y = [self.__prep_input(i) for i in [x, y]]
-                inputs = [x, y]
-            loss, metrics = step_fun(model=model,
-                                     inputs=inputs,
-                                     optimizer=optimizer)
-
+            print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)), flush=True, end='')
+            batch = [self.__prep_input(item) for item in batch]
+            loss, metrics = self.__step(model=model,
+                                        inputs=batch,
+                                        mode=mode,
+                                        optimizer=optimizer,
+                                        dataset_name=generator.dataset_name,
+                                        collect_outputs=collect_outputs)
             running_loss += loss
-            running_stats = self.store_statistics(running_stats, metrics)
         running_loss /= (idx + 1)
-        running_stats = {key: val / (idx + 1) for key, val in running_stats.items()}
-        return running_loss, running_stats
+        return running_loss
 
-    def __train_step(self, model, inputs, optimizer):
+    def __step(self, model, inputs, optimizer, mode, dataset_name, collect_outputs):
         if optimizer:
             optimizer.zero_grad()
 
-        if len(inputs) == 3:
+        if dataset_name == "graph":
             x, y, edge_index = inputs
             pred = model.forward(x, edge_index)
         else:
@@ -176,32 +163,25 @@ class Trainer:
             pred = model.forward(x)
 
         loss, pred = self.__get_loss(pred, y)
-        loss.backward()
 
-        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-        nn.utils.clip_grad_norm_(model.parameters(), self.clip)
+        if optimizer is not None:
+            loss.backward()
 
-        # take step in classifier's optimizer
-        optimizer.step()
+            # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+            nn.utils.clip_grad_norm_(model.parameters(), self.clip)
+
+            # take step in classifier's optimizer
+            optimizer.step()
 
         loss = loss.detach().cpu().numpy()
-        metrics = calculate_metrics(pred.detach().cpu().numpy(),
-                                    y.detach().cpu().numpy())
+        pred = pred.detach().cpu().numpy()
 
-        print(f"Loss: {loss}, AP: {metrics['AP']:.5f} F1: {metrics['f1']:.5f}")
-        return loss, metrics
+        if collect_outputs:
+            self.model_step_preds[mode].append(pred)
+            self.model_step_labels[mode].append(y.detach().cpu().numpy())
 
-    def __val_step(self, model, inputs, optimizer):
-        if len(inputs) == 3:
-            x, y, edge_index = inputs
-            pred = model.forward(x, edge_index)
-        else:
-            x, y = inputs
-            pred = model.forward(x)
-        loss, pred = self.__get_loss(pred, y)
-        metrics = calculate_metrics(pred.detach().cpu().numpy(),
-                                    y.detach().cpu().numpy())
-        return loss.detach().cpu().numpy(), metrics
+        print(f"Loss: {loss}")
+        return loss
 
     def __get_loss(self, pred, y, **kwargs):
         if self.loss_function in self.custom_losses:
@@ -221,24 +201,14 @@ class Trainer:
         x = x.float().to(self.device)
         return x
 
-    def __save_progress(self, model):
-        stats_path = os.path.join(self.save_dir, "statistics.pkl")
+    def __save_model(self, model):
         model_path = os.path.join(self.save_dir, "model.pkl")
-        for path, obj in zip([stats_path, model_path], [self.running_statistics, model]):
+        with open(model_path, "wb") as f:
+            pkl.dump(model, f)
+
+    def __save_outputs(self):
+        preds_path = os.path.join(self.save_dir, "preds.pkl")
+        labels_path = os.path.join(self.save_dir, "labels.pkl")
+        for path, obj in zip([preds_path, labels_path], [self.model_step_preds, self.model_step_labels]):
             with open(path, "wb") as f:
                 pkl.dump(obj, f)
-
-    @staticmethod
-    def store_statistics(running, new_metric):
-        if not running:  # empty dict
-            running = new_metric
-        else:
-            for key, val in new_metric.items():
-                running[key] += val
-        return running
-
-    @staticmethod
-    def print_metrics(in_metric, metric_name):
-        print_msg = "{} metrics: AP:{:.5f}, F1:{:.5f}, " \
-                    "Confusion_matrix: [TN:{:.0f}, FN:{:.0f}, FP:{:.0f}, TP:{:.0f}]"
-        print(print_msg.format(metric_name, *in_metric.values()))
