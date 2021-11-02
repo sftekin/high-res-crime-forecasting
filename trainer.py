@@ -39,7 +39,7 @@ class Trainer:
             "prob_loss": self.__prob_loss
         }
 
-        self.model_step_preds = {key: {} for key in ["train", "validation", "train_val", "test"]}
+        self.model_step_preds = {key: [] for key in ["train", "val", "train_val", "test"]}
         self.model_step_labels = deepcopy(self.model_step_preds)
 
     def fit(self, model, batch_generator):
@@ -78,17 +78,17 @@ class Trainer:
 
             epoch_time = time.time() - start_time
 
-            message_str = "\nEpoch: {}, Train_loss: {:.5f}, Validation_loss: {:.5f}, Took {:.3f} seconds."
-            print(message_str.format(epoch + 1, train_loss, val_loss, epoch_time))
+            message_str = "Epoch: {}, Train_loss: {:.5f}, Validation_loss: {:.5f}, Took {:.3f} seconds."
+            print(message_str.format(epoch + 1, running_train_loss, running_val_loss, epoch_time))
 
             # checkpoint
             self.__save_model(model)
             train_loss.append(running_train_loss)
             val_loss.append(running_val_loss)
 
-            if val_loss < best_val_loss:
+            if running_val_loss < best_val_loss:
                 best_epoch = epoch + 1
-                best_val_loss = val_loss
+                best_val_loss = running_val_loss
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
@@ -97,15 +97,17 @@ class Trainer:
             # perform predictions with the best model
             if tolerance > self.tolerance or epoch == self.num_epochs - 1:
                 model.load_state_dict(best_dict)
-                train_loss, val_loss, eval_loss = [self.__step_loop(model=model,
-                                                                    generator=batch_generator,
-                                                                    mode=mode,
-                                                                    optimizer=None,
-                                                                    collect_outputs=True) for mode in
-                                                   ["train", "val", "train_val"]]
+                tr_loss, vl_loss, eval_loss = [self.__step_loop(model=model,
+                                                                generator=batch_generator,
+                                                                mode=mode,
+                                                                optimizer=None,
+                                                                collect_outputs=True) for mode in
+                                               ["train", "val", "train_val"]]
 
+                print("-*-" * 10)
                 message_str = "Early exiting from epoch: {}, \nTrain Loss: {:5f}, Val Loss: {:5f}, Eval Loss: {:.5f}."
-                print(message_str.format(best_epoch, train_loss, val_loss, eval_loss))
+                print(message_str.format(best_epoch, tr_loss, vl_loss, eval_loss))
+                print("-*-" * 10)
 
                 # checkpoint
                 self.__save_model(model)
@@ -140,13 +142,12 @@ class Trainer:
         running_loss = 0
         for idx, batch in enumerate(generator.generate(mode)):
             print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)), flush=True, end='')
-            batch = [self.__prep_input(item) for item in batch]
-            loss, metrics = self.__step(model=model,
-                                        inputs=batch,
-                                        mode=mode,
-                                        optimizer=optimizer,
-                                        dataset_name=generator.dataset_name,
-                                        collect_outputs=collect_outputs)
+            loss = self.__step(model=model,
+                               inputs=batch,
+                               mode=mode,
+                               optimizer=optimizer,
+                               dataset_name=generator.dataset_name,
+                               collect_outputs=collect_outputs)
             running_loss += loss
         running_loss /= (idx + 1)
         return running_loss
@@ -155,11 +156,11 @@ class Trainer:
         if optimizer:
             optimizer.zero_grad()
 
+        x, y = self.__prep_input(inputs[0]), self.__prep_input(inputs[1])
         if dataset_name == "graph":
-            x, y, edge_index = inputs
+            edge_index = inputs[2].to(self.device)
             pred = model.forward(x, edge_index)
         else:
-            x, y = inputs
             pred = model.forward(x)
 
         loss, pred = self.__get_loss(pred, y)

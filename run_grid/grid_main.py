@@ -63,7 +63,7 @@ def run():
                                              **config.model_params[model_name])
 
         date_dir = os.path.join(save_dir, start_date_str)
-        if not os.path.exists:
+        if not os.path.exists(date_dir):
             os.makedirs(date_dir)
         trainer = Trainer(**config.trainer_params, save_dir=date_dir)
 
@@ -72,6 +72,8 @@ def run():
 
         # perform prediction
         trainer.transform(model=model, batch_generator=generator)
+
+
 
 
 if __name__ == '__main__':
