@@ -1,4 +1,5 @@
 import os
+import pickle as pkl
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ from batch_generators.batch_generator import BatchGenerator
 from models.convlstm import ConvLSTM
 from models.convlstm_one_block import ConvLSTMOneBlock
 from trainer import Trainer
-from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date
+from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date, calculate_metrics
 
 model_dispatcher = {
     "convlstm": ConvLSTM,
@@ -55,7 +56,7 @@ def run():
         labels = labels.astype(int)
 
         generator = BatchGenerator(in_data=grid,
-                                   labels=labels,
+                                   labels=labels[..., [0]],
                                    set_ids=set_ids,
                                    batch_gen_params=config.batch_gen_params)
 
@@ -73,7 +74,26 @@ def run():
         # perform prediction
         trainer.transform(model=model, batch_generator=generator)
 
+        pred_dict = trainer.model_step_preds
+        label_dict = trainer.model_step_labels
+        scores = get_scores(pred_dict, label_dict)
+        scores_path = os.path.join(date_dir, "scores.pkl")
+        with open(scores_path, "wb") as f:
+            pkl.dump(scores, f)
+        print(scores)
 
+        break
+
+
+def get_scores(pred_dict, label_dict):
+    pred_dict = {key: np.concatenate(val) for key, val in pred_dict.items()}
+    label_dict = {key: np.concatenate(val) for key, val in label_dict.items()}
+
+    scores = {}
+    for key in pred_dict.keys():
+        scores[key] = calculate_metrics(pred=pred_dict[key], label=label_dict[key])
+
+    return scores
 
 
 if __name__ == '__main__':

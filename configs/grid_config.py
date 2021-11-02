@@ -23,11 +23,11 @@ class GridConfig(Config):
 
         self.trainer_params = {
             "device": 'cuda',
-            "num_epochs": 3,
+            "num_epochs": 200,
             "momentum": 0.7,
             "optimizer": "adam",
-            "weight_decay": 0.00023,
-            "learning_rate": 0.001,
+            "weight_decay": 0,
+            "learning_rate": 0.0001,
             "clip": 5,
             "early_stop_tolerance": 4,
             "loss_function": "BCE"
@@ -36,19 +36,19 @@ class GridConfig(Config):
         self.model_params = {
             "convlstm": {
                 "input_size": (50, 33),
-                "window_in": 10,  # should be same with batch_gen["window_in_len"]
+                "window_in": 5,  # should be same with batch_gen["window_in_len"]
                 "window_out": 1,  # should be same with batch_gen["window_out_len"]
                 "num_layers": 3,
                 "encoder_params": {
                     "input_dim": 8,
-                    "hidden_dims": [8, 16, 32],
-                    "kernel_size": [5, 3, 3],
+                    "hidden_dims": [1, 16, 32],
+                    "kernel_size": [3, 3, 3],
                     "bias": False,
                     "peephole_con": False
                 },
                 "decoder_params": {
                     "input_dim": 32,
-                    "hidden_dims": [32, 16, 8],
+                    "hidden_dims": [32, 16, 1],
                     "kernel_size": [3, 3, 3],
                     "bias": False,
                     "peephole_con": False

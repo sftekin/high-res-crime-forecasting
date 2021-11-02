@@ -16,47 +16,24 @@ def get_save_dir(model_name):
 
 def calculate_metrics(pred, label):
     target_count = pred.shape[-1]
-    if target_count > 1:
-        # multi label
-        pred, label = pred.reshape(-1, target_count), label.reshape(-1, target_count)
-        # find best threshold
-        for i in range(target_count):
-            fpr, tpr, thresholds = roc_curve(y_true=label[:, i], y_score=pred[:, i])
-            opt_thr = thresholds[np.argmax(tpr - fpr)]
-            pred[:, i] = (pred[:, i] >= opt_thr).astype(int)
+    # multi label
+    pred, label = pred.reshape(-1, target_count), label.reshape(-1, target_count)
+    # find best threshold
+    for i in range(target_count):
+        fpr, tpr, thresholds = roc_curve(y_true=label[:, i], y_score=pred[:, i])
+        opt_thr = thresholds[np.argmax(tpr - fpr)]
+        pred[:, i] = (pred[:, i] >= opt_thr).astype(int)
+    if target_count == 1:
+        f1 = f1_score(label, pred)
+        metrics = {"f1": f1}
+    else:
         micro_f1 = f1_score(label, pred, average="micro")
         macro_f1 = f1_score(label, pred, average="macro")
-        tn, fn, fp, tp = confusion_matrix(y_true=label, y_pred=pred).flatten()
-    else:
-        pred, label = pred.flatten(), label.flatten()
 
-        # find best threshold
-        fpr, tpr, thresholds = roc_curve(y_true=label, y_score=pred)
-        opt_thr = thresholds[np.argmax(tpr - fpr)]
-        pred = (pred >= opt_thr).astype(int)
-
-        tn, fn, fp, tp = confusion_matrix(y_true=label, y_pred=pred).flatten()
-
-    thresholds = np.linspace(pred.min(), pred.max(), 30)
-    f1_list = []
-    for thr in thresholds:
-        bin_pred = (pred >= thr).astype(int)
-        f1_list.append(f1_score(label, bin_pred))
-    f1_arr = np.array(f1_list)
-    best_threshold = thresholds[np.argmax(f1_arr)]
-    best_f1 = np.max(f1_arr)
-
-    bin_pred = (pred >= best_threshold).astype(int)
-    tn, fn, fp, tp = confusion_matrix(y_true=label, y_pred=bin_pred).flatten()
-
-    metrics = {
-        "AP": ap,
-        "f1": best_f1,
-        "tn": tn,
-        "fn": fn,
-        "fp": fp,
-        "tp": tp
-    }
+        metrics = {
+            "f1_micro": micro_f1,
+            "f1_macro": macro_f1
+        }
 
     return metrics
 
