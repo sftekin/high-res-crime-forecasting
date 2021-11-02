@@ -92,16 +92,18 @@ def run():
             set_sizes = [len(s) for s in [train_ts, val_ts, test_ts]]
             result = get_result_dict(preds, labels, set_sizes)
             pred_cp_path = os.path.join(save_dir, f"{start_date_str}_{crime}_results.pkl")
-            with open(pred_cp_path, "rb") as f:
+            with open(pred_cp_path, "wb") as f:
                 pkl.dump(result, f)
 
             scores_cp_path = os.path.join(save_dir, f"{start_date_str}_{crime}_scores.pkl")
             scores = get_scores(result)
-            with open(scores_cp_path, "rb") as f:
+            with open(scores_cp_path, "wb") as f:
                 pkl.dump(result, f)
 
             results_list.append(result)
             scores_list.append(scores)
+
+            print(f"Test Scores for the {crime}: AP: {scores['test']['AP']:.3f}, F1: {scores['test']['f1']:.3f}")
 
         results_save_path = os.path.join(save_dir, f"{start_date_str}_results.npy")
         with open(results_save_path, "rb") as f:

@@ -17,7 +17,7 @@ def calculate_metrics(pred, label):
     pred, label = pred.flatten(), label.flatten()
     ap = average_precision_score(y_true=label, y_score=pred)
 
-    thresholds = np.linspace(pred.min(), pred.max(), 100)
+    thresholds = np.linspace(pred.min(), pred.max(), 30)
     f1_list = []
     for thr in thresholds:
         bin_pred = (pred >= thr).astype(int)
