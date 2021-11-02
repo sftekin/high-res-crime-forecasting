@@ -8,10 +8,10 @@ class Config:
             "crime_categories": ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE',
                                  'NARCOTICS', 'ROBBERY', 'ASSAULT',
                                  'DECEPTIVE PRACTICE', 'BURGLARY'],
-            "plot": True
+            "plot": False
         }
         self.grid_params = {
-            "spatial_res": (100, 66),  # 500mx500m
+            "spatial_res": (50, 33),  # 500mx500m
             "include_side_info": False
         }
 

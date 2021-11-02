@@ -23,7 +23,7 @@ class DataCreator:
                                     freq=f'{self.temp_res}H', closed="left")
 
         self.data_columns = None
-        self.num_process = 8
+        self.num_process = 16
 
     def create(self):
         crime_df = pd.read_csv(self.__data_path)
