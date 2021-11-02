@@ -72,6 +72,15 @@ class GridCreator(DataCreator):
 
         return True
 
+    def load_grid(self, dataset_name):
+        npy_paths = self.get_npy_paths(self.grid_save_dir, dataset_name)
+        grid = []
+        for path in npy_paths:
+            with open(path, "rb") as f:
+                grid.append(np.load(f))
+        grid = np.stack(grid)
+        return grid
+
     def get_paths(self, dataset_name):
         npy_paths = self.get_npy_paths(self.grid_save_dir, dataset_name)
         return npy_paths

@@ -6,11 +6,12 @@ from normalizers.batch_normalizer import BatchNormalizer
 
 
 class BatchGenerator:
-    def __init__(self, in_data, labels, batch_gen_params, regions=None, edge_index=None):
+    def __init__(self, in_data, labels, set_ids, batch_gen_params, regions=None, edge_index=None):
         self.in_data = in_data
         self.labels = labels
         self.edge_index = edge_index
         self.regions = regions
+        self.set_ids = set_ids
 
         self.dataset_name = batch_gen_params["dataset_name"]
         self.test_size = batch_gen_params["test_size"]
@@ -28,20 +29,16 @@ class BatchGenerator:
                                               normalization_dims=self.normalization_dims)
             self.input_data = self.normalizer.norm(x=self.in_data)
 
-        self.train_val_size = len(in_data) - self.test_size
-        self.val_size = int(self.train_val_size * self.val_ratio)
-        self.train_size = self.train_val_size - self.val_size
-
-        self.data_ids = np.arange(len(in_data))
         self.data_dict = self.__split_data()
         self.dataset_dict = self.__create_sets()
 
     def __split_data(self):
+        train_ids, val_ids, test_ids = self.set_ids
         data_dict = {
-            'train': self.data_ids[:self.train_size],
-            'val': self.data_ids[self.train_size:self.train_val_size],
-            "train_val": self.data_ids[:self.train_val_size],
-            'test': self.data_ids[self.train_val_size:]
+            'train': train_ids,
+            'val': val_ids,
+            "train_val": np.concatenate([train_ids, val_ids]),
+            'test': test_ids
         }
         return data_dict
 

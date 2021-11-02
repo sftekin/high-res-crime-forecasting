@@ -1,4 +1,4 @@
-from config import Config
+from configs.config import Config
 
 
 class StatsConfig(Config):

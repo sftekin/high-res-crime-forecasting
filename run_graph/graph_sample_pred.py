@@ -4,9 +4,9 @@ import pickle as pkl
 import torch
 import numpy as np
 from data_generators.graph_creator import GraphCreator
-from graph_config import GraphConfig
+from configs.graph_config import GraphConfig
 from helpers.graph_helper import get_probs, inverse_label, flatten_labels
-from helpers.plot_helper import _plot_2d, _plot_3d
+from helpers.plot_helper import _plot_2d
 
 
 def run():

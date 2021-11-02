@@ -7,13 +7,11 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from models.arima import ARIMA
-from concurrent.futures import ThreadPoolExecutor
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
-from sklearn.metrics import f1_score, average_precision_score
 
-from stats_config import StatsConfig
+from configs.stats_config import StatsConfig
 from data_generators.grid_creator import GridCreator
-from helpers.static_helper import calculate_metrics, get_save_dir
+from helpers.static_helper import calculate_metrics, get_save_dir, get_set_ids, get_set_end_date
 
 
 model_dispatcher = {
@@ -47,6 +45,8 @@ def run():
     data_len = config.batch_gen_params["train_size"] + \
                config.batch_gen_params["val_size"] + config.batch_gen_params["test_size"]
     for i in range(0, int(12 - data_len) + 1):
+        if i == 0:
+            continue
         stride_offset = pd.DateOffset(months=i)
         start_date = grid_creator.date_r[0] + stride_offset
         start_date_str = start_date.strftime("%Y-%m-%d")
@@ -62,12 +62,7 @@ def run():
         results_list = []
         scores_list = []
         for crime in grid_creator.crime_types:
-            grid_paths = grid_creator.get_paths(dataset_name=crime)
-            grid = []
-            for path in grid_paths:
-                with open(path, "rb") as f:
-                    grid.append(np.load(f))
-            grid = np.stack(grid)
+            grid = grid_creator.load_grid(dataset_name=crime)
 
             time_len, height, width, feat_count = grid.shape
             grid_flatten = grid.reshape((-1, height * width, feat_count))
@@ -105,12 +100,12 @@ def run():
 
             print(f"Test Scores for the {crime}: AP: {scores['test']['AP']:.3f}, F1: {scores['test']['f1']:.3f}")
 
-        results_save_path = os.path.join(save_dir, f"{start_date_str}_results.npy")
-        with open(results_save_path, "rb") as f:
+        results_save_path = os.path.join(save_dir, f"{start_date_str}_results.pkl")
+        with open(results_save_path, "wb") as f:
             pkl.dump(results_list, f)
 
-        scores_save_path = os.path.join(save_dir, f"{start_date_str}_scores.npy")
-        with open(scores_save_path, "rb") as f:
+        scores_save_path = os.path.join(save_dir, f"{start_date_str}_scores.pkl")
+        with open(scores_save_path, "wb") as f:
             pkl.dump(scores_list, f)
 
 
@@ -128,19 +123,6 @@ def fit_transform(arg_list):
 
     predictions = np.concatenate([train_pred, val_pred, test_pred])
     return predictions
-
-
-def get_set_end_date(set_size, start_date):
-    months = int(set_size)
-    days = 30 * (set_size - int(set_size))
-    date_offset = pd.DateOffset(months=months, days=int(days))
-    end_date = start_date + date_offset
-    return end_date
-
-
-def get_set_ids(date_r, start_date, end_date):
-    ids = np.argwhere((date_r > start_date) & (date_r < end_date)).squeeze()
-    return ids
 
 
 def get_result_dict(preds, labels, set_sizes):

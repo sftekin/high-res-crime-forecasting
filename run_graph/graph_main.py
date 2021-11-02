@@ -1,10 +1,10 @@
 import os
 
-from graph_config import GraphConfig
+from configs.graph_config import GraphConfig
 from data_generators.graph_creator import GraphCreator
 from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
-from trainer.trainer import Trainer
+from trainer import Trainer
 from models.graph_model import GraphModel
 from helpers.static_helper import get_save_dir
 
