@@ -14,19 +14,11 @@ from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date, c
 
 def run():
     config = GraphConfig()
-    graph_creator = GraphCreator(data_params=config.data_params,
-                                 graph_params=config.graph_params)
     grid_creator = GridCreator(data_params=config.data_params, grid_params=config.grid_params)
-    loaded = graph_creator.load()
-    if not loaded:
-        print(f"Data is not found in {graph_creator.graph_save_dir}. Starting data creation...")
-        if not grid_creator.check_is_created():
-            grid_creator.create_grid()
-        grid = grid_creator.load_grid(dataset_name="all")
-        events = grid[..., [2]]
-        graph_creator.create_graph(grid=events)
-    else:
-        print(f"Data found. Data is loaded from {graph_creator.graph_save_dir}.")
+
+    if not grid_creator.check_is_created():
+        print(f"Data is not found in {grid_creator.grid_save_dir}. Starting data creation...")
+        grid_creator.create_grid()
 
     # create save path
     model_name = "graph_mode"
@@ -50,8 +42,11 @@ def run():
 
         for c in grid_creator.crime_types:
             grid = grid_creator.load_grid(c)[..., [2]]
-            labels = (grid > 0).astype(int)
+            graph_creator = GraphCreator(data_params=config.data_params,
+                                         graph_params=config.graph_params)
+            graph_creator.create_graph(grid=grid)
 
+            labels = (grid > 0).astype(int)
             generator = BatchGenerator(in_data=graph_creator.node_features,
                                        labels=labels,
                                        set_ids=set_ids,
@@ -63,8 +58,13 @@ def run():
                                node_count=graph_creator.node_features.shape[1],
                                **config.model_params["graph_model"])
 
-            trainer = Trainer(**config.trainer_params, save_dir=save_dir,
-                              node2cell=graph_creator.node2cells, regions=graph_creator.regions)
+            date_dir = os.path.join(save_dir, start_date_str)
+            if not os.path.exists(date_dir):
+                os.makedirs(date_dir)
+            trainer = Trainer(**config.trainer_params,
+                              save_dir=date_dir,
+                              node2cell=graph_creator.node2cells,
+                              regions=graph_creator.regions)
 
             # train model
             trainer.fit(model=model, batch_generator=generator)

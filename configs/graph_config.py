@@ -27,7 +27,7 @@ class GraphConfig(Config):
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0.00023,
-            "learning_rate": 0.0003,
+            "learning_rate": 0.0001,
             "clip": 5,
             "early_stop_tolerance": 10,
             "loss_function": "prob_loss"
@@ -35,7 +35,7 @@ class GraphConfig(Config):
 
         self.model_params = {
             "graph_model": {
-                "input_dim": 10,
+                "input_dim": 52,  # 52 if side info is included else 10
                 "hidden_dims": [30, 20, 10],
                 "num_layers": 3,
                 "filter_sizes": [3, 3, 3],

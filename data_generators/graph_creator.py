@@ -112,7 +112,7 @@ class GraphCreator(DataCreator):
         # create node features
         time_len, num_nodes = len(self.date_r), len(nodes)
         if self.include_side_info:
-            num_feats = crime_df.shape[1] + 1  # categorical features + event_count + node_location
+            num_feats = crime_df.shape[1] + len(self.crime_types)  # categorical features + event_count + node_location
         else:
             num_feats = 2 + len(self.crime_types)  # event count + node_location
         node_features = np.zeros((time_len, num_nodes, num_feats))
@@ -132,7 +132,7 @@ class GraphCreator(DataCreator):
                     cat_df = region_df.resample(f"{self.temp_res}H").mean().reindex(self.date_r, fill_value=0)
                     cat_df = cat_df.fillna(0)
                     cat_df = cat_df.drop(columns=["Latitude", "Longitude"])
-                    node_features[:, n, 3:] = cat_df.values
+                    node_features[:, n, len(self.crime_types) + 2:] = cat_df.values
 
         return node_features
 
