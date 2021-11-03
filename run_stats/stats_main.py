@@ -11,7 +11,7 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 from configs.stats_config import StatsConfig
 from data_generators.grid_creator import GridCreator
-from helpers.static_helper import calculate_metrics, get_save_dir, get_set_ids, get_set_end_date
+from helpers.static_helper import calculate_metrics, f1_score, get_save_dir, get_set_ids, get_set_end_date, bin_pred
 
 
 model_dispatcher = {
@@ -51,9 +51,9 @@ def run():
         start_date = grid_creator.date_r[0] + stride_offset
         start_date_str = start_date.strftime("%Y-%m-%d")
 
-        train_end_date = get_set_end_date(set_size=config.batch_gen_params["train_size"], start_date=start_date)
-        val_end_date = get_set_end_date(set_size=config.batch_gen_params["val_size"], start_date=train_end_date)
-        test_end_date = get_set_end_date(set_size=config.batch_gen_params["test_size"], start_date=val_end_date)
+        train_end_date = get_set_end_date(set_size=config.experiment_params["train_size"], start_date=start_date)
+        val_end_date = get_set_end_date(set_size=config.experiment_params["val_size"], start_date=train_end_date)
+        test_end_date = get_set_end_date(set_size=config.experiment_params["test_size"], start_date=val_end_date)
 
         train_ids = get_set_ids(grid_creator.date_r, start_date, train_end_date)
         val_ids = get_set_ids(grid_creator.date_r, train_end_date, val_end_date)
@@ -93,12 +93,12 @@ def run():
             scores_cp_path = os.path.join(save_dir, f"{start_date_str}_{crime}_scores.pkl")
             scores = get_scores(result)
             with open(scores_cp_path, "wb") as f:
-                pkl.dump(result, f)
+                pkl.dump(scores, f)
 
             results_list.append(result)
             scores_list.append(scores)
 
-            print(f"Test Scores for the {crime}: AP: {scores['test']['AP']:.3f}, F1: {scores['test']['f1']:.3f}")
+            print(f"Test Scores for the {crime}: F1: {scores['test']:.3f}")
 
         results_save_path = os.path.join(save_dir, f"{start_date_str}_results.pkl")
         with open(results_save_path, "wb") as f:
@@ -136,11 +136,13 @@ def get_result_dict(preds, labels, set_sizes):
 
 
 def get_scores(result_dict):
-    score_dict = {
-        "train": calculate_metrics(pred=result_dict["train"][0], label=result_dict["train"][1]),
-        "val": calculate_metrics(pred=result_dict["val"][0], label=result_dict["val"][1]),
-        "test": calculate_metrics(pred=result_dict["test"][0], label=result_dict["test"][1])
-    }
+    score_dict = {}
+    for key, val in result_dict.items():
+        pred, label = val
+        pred = bin_pred(pred.flatten(), label.flatten())
+        f1 = f1_score(y_true=label.flatten(), y_pred=pred)
+        score_dict[key] = f1
+
     return score_dict
 
 

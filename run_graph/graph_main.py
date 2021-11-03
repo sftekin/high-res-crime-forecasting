@@ -41,6 +41,7 @@ def run():
         set_ids = [train_ids, val_ids, test_ids]
 
         for c in grid_creator.crime_types:
+            print(c)
             grid = grid_creator.load_grid(c)[..., [2]]
             graph_creator = GraphCreator(data_params=config.data_params,
                                          graph_params=config.graph_params)
