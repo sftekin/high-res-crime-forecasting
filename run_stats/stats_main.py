@@ -45,8 +45,6 @@ def run():
     data_len = config.experiment_params["train_size"] + \
                config.experiment_params["val_size"] + config.experiment_params["test_size"]
     for i in range(0, int(12 - data_len) + 1):
-        if i == 0:
-            continue
         stride_offset = pd.DateOffset(months=i)
         start_date = grid_creator.date_r[0] + stride_offset
         start_date_str = start_date.strftime("%Y-%m-%d")
