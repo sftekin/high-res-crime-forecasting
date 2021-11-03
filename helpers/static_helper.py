@@ -20,9 +20,7 @@ def calculate_metrics(pred, label):
     pred, label = pred.reshape(-1, target_count), label.reshape(-1, target_count)
     # find best threshold
     for i in range(target_count):
-        fpr, tpr, thresholds = roc_curve(y_true=label[:, i], y_score=pred[:, i])
-        opt_thr = thresholds[np.argmax(tpr - fpr)]
-        pred[:, i] = (pred[:, i] >= opt_thr).astype(int)
+        pred[:, i] = bin_pred(pred[:, i], label[:, i])
     if target_count == 1:
         f1 = f1_score(label, pred)
         metrics = {"f1": f1}
@@ -36,6 +34,13 @@ def calculate_metrics(pred, label):
         }
 
     return metrics
+
+
+def bin_pred(pred, label):
+    fpr, tpr, thresholds = roc_curve(y_true=label, y_score=pred)
+    opt_thr = thresholds[np.argmax(tpr - fpr)]
+    pred = (pred >= opt_thr).astype(int)
+    return pred
 
 
 def get_set_end_date(set_size, start_date):

@@ -9,6 +9,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 
 from helpers.graph_helper import get_probs
+from helpers.static_helper import bin_pred, f1_score
 
 
 class Trainer:
@@ -176,12 +177,17 @@ class Trainer:
 
         loss = loss.detach().cpu().numpy()
         pred = pred.detach().cpu().numpy()
+        y = y.detach().cpu().numpy()
 
         if collect_outputs:
             self.model_step_preds[mode].append(pred)
-            self.model_step_labels[mode].append(y.detach().cpu().numpy())
+            self.model_step_labels[mode].append(y)
 
-        print(f"Loss: {loss}")
+        # calc f1 score
+        pred = bin_pred(pred=pred.flatten(), label=y.flatten())
+        f1 = f1_score(y_true=y.flatten(), y_pred=pred)
+
+        print(f"Loss: {loss}, F1 Score: {f1}")
         return loss
 
     def __get_loss(self, pred, y, **kwargs):

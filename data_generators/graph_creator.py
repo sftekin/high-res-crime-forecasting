@@ -22,7 +22,6 @@ class GraphCreator(DataCreator):
 
         self.node_features = None
         self.edge_index = None
-        self.labels = None
         self.regions = None
         self.node2cells = {}
 
@@ -33,10 +32,9 @@ class GraphCreator(DataCreator):
 
         edge_index_path = os.path.join(self.graph_save_dir, "edge_index.pkl")
         node_features_path = os.path.join(self.graph_save_dir, "node_features.pkl")
-        labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
         node2cells_path = os.path.join(self.graph_save_dir, "node2cells.pkl")
         regions_path = os.path.join(self.graph_save_dir, "regions.pkl")
-        self.paths = [edge_index_path, node_features_path, labels_path, node2cells_path, regions_path]
+        self.paths = [edge_index_path, node_features_path, node2cells_path, regions_path]
 
     def create_graph(self, grid):
         crime_df = super().create()
@@ -70,7 +68,6 @@ class GraphCreator(DataCreator):
         # create graph parameters
         self.edge_index = self.create_edge_index(edges)
         self.node_features = self.__create_node_features(crime_df, nodes, polygons)
-        self.labels = grid
         self.regions = regions
         self.__create_node_cells(regions, coord_grid)
 
@@ -97,10 +94,8 @@ class GraphCreator(DataCreator):
             with open(self.paths[1], "rb") as f:
                 self.node_features = pkl.load(f)
             with open(self.paths[2], "rb") as f:
-                self.labels = pkl.load(f)
-            with open(self.paths[3], "rb") as f:
                 self.node2cells = pkl.load(f)
-            with open(self.paths[4], "rb") as f:
+            with open(self.paths[3], "rb") as f:
                 self.regions = pkl.load(f)
             loaded = True
         return loaded
@@ -119,15 +114,20 @@ class GraphCreator(DataCreator):
         if self.include_side_info:
             num_feats = crime_df.shape[1] + 1  # categorical features + event_count + node_location
         else:
-            num_feats = 3  # event count + node_location
+            num_feats = 2 + len(self.crime_types)  # event count + node_location
         node_features = np.zeros((time_len, num_nodes, num_feats))
         for n in range(len(nodes)):
             lt, ln = ranges[n]
             region_df = self.get_in_range(crime_df, lt, ln)
             node_features[:, n, :2] = nodes[n]  # first 2 features are the location of node
             if not region_df.empty:
-                event_count = region_df.resample(f"{self.temp_res}H").size().reindex(self.date_r, fill_value=0)
-                node_features[:, n, 2] = event_count.values  # third feature is the event count
+                event_counts = []
+                for crime in self.crime_types:
+                    in_df = region_df[region_df[crime] == 1]
+                    events = in_df.resample(f"{self.temp_res}H").size().reindex(self.date_r, fill_value=0)
+                    event_counts.append(events.values)
+                event_counts = np.stack(event_counts, axis=1)
+                node_features[:, n, 2:len(self.crime_types) + 2] = event_counts  # append the event counts
                 if self.include_side_info:
                     cat_df = region_df.resample(f"{self.temp_res}H").mean().reindex(self.date_r, fill_value=0)
                     cat_df = cat_df.fillna(0)
@@ -144,7 +144,7 @@ class GraphCreator(DataCreator):
             self.node2cells[i] = region_cells
 
     def __save_data(self):
-        items = [self.edge_index, self.node_features, self.labels, self.node2cells, self.regions]
+        items = [self.edge_index, self.node_features, self.node2cells, self.regions]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)

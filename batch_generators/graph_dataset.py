@@ -16,6 +16,6 @@ class GraphDataset(Dataset):
         # generate
         for i in range(self.num_iter):
             node_features = torch.from_numpy(all_data[i][0])
-            labels = torch.from_numpy(all_data[i][1]).squeeze()
+            labels = torch.from_numpy(all_data[i][1])[:, 0]
             edge_index = torch.from_numpy(self.edge_index)
             yield node_features, labels, edge_index

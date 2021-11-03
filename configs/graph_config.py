@@ -35,7 +35,7 @@ class GraphConfig(Config):
 
         self.model_params = {
             "graph_model": {
-                "input_dim": 3,
+                "input_dim": 10,
                 "hidden_dims": [30, 20, 10],
                 "num_layers": 3,
                 "filter_sizes": [3, 3, 3],
