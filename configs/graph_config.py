@@ -11,7 +11,7 @@ class GraphConfig(Config):
         }
 
         self.batch_gen_params = {
-            "window_in_len": 10,
+            "window_in_len": 5,
             "window_out_len": 1,
             "batch_size": 5,
             "shuffle": False,
@@ -23,11 +23,11 @@ class GraphConfig(Config):
 
         self.trainer_params = {
             "device": 'cuda',
-            "num_epochs": 50,
+            "num_epochs": 100,
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0.00023,
-            "learning_rate": 0.0001,
+            "learning_rate": 0.0003,
             "clip": 5,
             "early_stop_tolerance": 10,
             "loss_function": "prob_loss"
@@ -35,7 +35,7 @@ class GraphConfig(Config):
 
         self.model_params = {
             "graph_model": {
-                "input_dim": 52,  # 52 if side info is included else 10
+                "input_dim": 10,  # 52 if side info is included else 10
                 "hidden_dims": [30, 20, 10],
                 "num_layers": 3,
                 "filter_sizes": [3, 3, 3],

@@ -21,7 +21,7 @@ def run():
         grid_creator.create_grid()
 
     # create save path
-    model_name = "graph_mode"
+    model_name = "graph_model"
     save_dir = get_save_dir(model_name=model_name)
 
     data_len = config.experiment_params["train_size"] + \
@@ -42,7 +42,7 @@ def run():
 
         for c in grid_creator.crime_types:
             print(c)
-            grid = grid_creator.load_grid(c)[..., [2]]
+            grid = grid_creator.load_grid(dataset_name=c)[..., [2]]
             graph_creator = GraphCreator(data_params=config.data_params,
                                          graph_params=config.graph_params)
             graph_creator.create_graph(grid=grid)
@@ -59,7 +59,7 @@ def run():
                                node_count=graph_creator.node_features.shape[1],
                                **config.model_params["graph_model"])
 
-            date_dir = os.path.join(save_dir, start_date_str)
+            date_dir = os.path.join(save_dir, start_date_str, c)
             if not os.path.exists(date_dir):
                 os.makedirs(date_dir)
             trainer = Trainer(**config.trainer_params,

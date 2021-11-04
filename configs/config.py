@@ -16,8 +16,8 @@ class Config:
         }
 
         self.graph_params = {
-            "event_threshold": 1000,
-            "include_side_info": True,
+            "event_threshold": 200,
+            "include_side_info": False,
             "grid_name": "all",
             "min_cell_size": (2, 2),
             "normalize_coords": True
