@@ -179,6 +179,9 @@ class Trainer:
         pred = pred.detach().cpu().numpy()
         y = y.detach().cpu().numpy()
 
+        if self.loss_function == "MSE":
+            y = (y > 0).astype(int)
+
         if collect_outputs:
             self.model_step_preds[mode].append(pred)
             self.model_step_labels[mode].append(y)

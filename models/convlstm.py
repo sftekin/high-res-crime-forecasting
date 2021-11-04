@@ -75,8 +75,8 @@ class ConvLSTM(nn.Module):
                                      self.decoder_params['input_dim'], m, n)).to(self.device)
         dec_output, _ = self.__forward_block(decoder_input, cur_states, 'decoder', return_all_layers=False)
 
-        output = self.out_act(dec_output)
-        output = output.permute(0, 1, 3, 4, 2)
+        # output = self.out_act(dec_output)
+        output = dec_output.permute(0, 1, 3, 4, 2)
         return output
 
     def __forward_block(self, input_tensor, hidden_state, block_name, return_all_layers):

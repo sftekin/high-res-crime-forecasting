@@ -49,14 +49,13 @@ def run():
         test_ids = get_set_ids(grid_creator.date_r, val_end_date, test_end_date)
         set_ids = [train_ids, val_ids, test_ids]
 
-        grid_crimes = [grid_creator.load_grid(c)[..., [2]] for c in grid_creator.crime_types]
-        grid = np.concatenate(grid_crimes, axis=-1)
+        # grid_crimes = [grid_creator.load_grid(c)[..., [2]] for c in grid_creator.crime_types]
+        grid = grid_creator.load_grid(dataset_name="THEFT")
 
-        labels = grid > True
-        labels = labels.astype(int)
+        labels = (grid > 0).astype(int)
 
-        generator = BatchGenerator(in_data=grid,
-                                   labels=labels[..., [0]],
+        generator = BatchGenerator(in_data=grid[..., [2]],
+                                   labels=grid[..., [2]],
                                    set_ids=set_ids,
                                    batch_gen_params=config.batch_gen_params)
 
