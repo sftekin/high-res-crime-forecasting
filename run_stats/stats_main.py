@@ -96,7 +96,9 @@ def run():
             results_list.append(result)
             scores_list.append(scores)
 
-            print(f"Test Scores for the {crime}: F1: {scores['test']:.3f}")
+            print(f"Train Scores for the {crime}: F1: {scores['train']:.5f}")
+            print(f"Val Scores for the {crime}: F1: {scores['val']:.5f}")
+            print(f"Test Scores for the {crime}: F1: {scores['test']:.5f}")
 
         results_save_path = os.path.join(save_dir, f"{start_date_str}_results.pkl")
         with open(results_save_path, "wb") as f:

@@ -27,9 +27,9 @@ class GridConfig(Config):
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0,
-            "learning_rate": 0.0001,
+            "learning_rate": 0.001,
             "clip": 5,
-            "early_stop_tolerance": 4,
+            "early_stop_tolerance": 10,
             "loss_function": "MSE"
         }
 
@@ -38,18 +38,18 @@ class GridConfig(Config):
                 "input_size": (50, 33),
                 "window_in": 5,  # should be same with batch_gen["window_in_len"]
                 "window_out": 1,  # should be same with batch_gen["window_out_len"]
-                "num_layers": 3,
+                "num_layers": 4,
                 "encoder_params": {
                     "input_dim": 1,
-                    "hidden_dims": [1, 16, 32],
-                    "kernel_size": [3, 3, 3],
+                    "hidden_dims": [1, 16, 32, 64],
+                    "kernel_size": [5, 3, 3, 3],
                     "bias": True,
                     "peephole_con": False
                 },
                 "decoder_params": {
-                    "input_dim": 32,
-                    "hidden_dims": [32, 16, 1],
-                    "kernel_size": [3, 3, 3],
+                    "input_dim": 64,
+                    "hidden_dims": [64, 32, 16, 1],
+                    "kernel_size": [5, 3, 3, 3],
                     "bias": True,
                     "peephole_con": False
                 }

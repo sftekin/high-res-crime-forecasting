@@ -25,7 +25,7 @@ class ConvLSTM(nn.Module):
         # define decoder
         self.decoder = self.__define_block(decoder_params)
 
-        self.out_act = nn.Sigmoid()
+        self.out_act = nn.ReLU()
 
         self.hidden = None
         self.is_trainable = True
@@ -75,7 +75,7 @@ class ConvLSTM(nn.Module):
                                      self.decoder_params['input_dim'], m, n)).to(self.device)
         dec_output, _ = self.__forward_block(decoder_input, cur_states, 'decoder', return_all_layers=False)
 
-        # output = self.out_act(dec_output)
+        dec_output = self.out_act(dec_output)
         output = dec_output.permute(0, 1, 3, 4, 2)
         return output
 
