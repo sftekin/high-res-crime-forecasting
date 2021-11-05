@@ -44,10 +44,13 @@ def run():
             print(c)
             grid = grid_creator.load_grid(dataset_name=c)[..., [2]]
             graph_creator = GraphCreator(data_params=config.data_params,
-                                         graph_params=config.graph_params)
-            graph_creator.create_graph(grid=grid)
+                                         graph_params=config.graph_params,
+                                         save_dir=f"{start_date_str}_{c}")
+            loaded = graph_creator.load()
+            if not loaded:
+                graph_creator.create_graph(grid=grid, crime_type=c)
 
-            labels = (grid > 0).astype(int)
+            labels = np.array(graph_creator.labels)
             generator = BatchGenerator(in_data=graph_creator.node_features,
                                        labels=labels,
                                        set_ids=set_ids,
@@ -74,6 +77,8 @@ def run():
             trainer.transform(model=model, batch_generator=generator)
 
 
+def create_labels(crime_df, date_r, crime_type):
+    print()
 
 
 if __name__ == '__main__':

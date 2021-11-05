@@ -20,7 +20,8 @@ class Config:
             "include_side_info": False,
             "grid_name": "all",
             "min_cell_size": (2, 2),
-            "normalize_coords": True
+            "normalize_coords": True,
+            "k_nearest": 10
         }
 
         self.batch_gen_params = {}

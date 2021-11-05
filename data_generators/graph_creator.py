@@ -1,32 +1,38 @@
 import os
+from tqdm import tqdm
 import pickle as pkl
+import multiprocessing
 
 import numpy as np
 import pandas as pd
 
 import itertools
 from data_generators.data_creator import DataCreator
-from shapely.geometry import Polygon, LineString
+from shapely.geometry import Polygon, LineString, Point
 from helpers.graph_helper import plot_regions, plot_graph
 from helpers.plot_helper import plot_hist_dist
+from concurrent.futures import ThreadPoolExecutor
 
 
 class GraphCreator(DataCreator):
-    def __init__(self, data_params, graph_params):
+    def __init__(self, data_params, graph_params, save_dir):
         super(GraphCreator, self).__init__(data_params)
         self.threshold = graph_params["event_threshold"]
         self.include_side_info = graph_params["include_side_info"]
         self.grid_name = graph_params["grid_name"]
         self.min_cell_size = graph_params["min_cell_size"]
         self.normalize_coords = graph_params["normalize_coords"]
+        self.k = graph_params["k_nearest"]
 
         self.node_features = None
         self.edge_index = None
         self.regions = None
+        self.labels = None
         self.node2cells = {}
 
         # create the data_dump directory
-        self.graph_save_dir = os.path.join(self.temp_dir, "graph", f"data_dump_{self.temp_res}_{self.threshold}")
+        self.graph_save_dir = os.path.join(self.temp_dir, "graph", save_dir,
+                                           f"data_dump_{self.temp_res}_{self.threshold}")
         if not os.path.exists(self.graph_save_dir):
             os.makedirs(self.graph_save_dir)
 
@@ -34,9 +40,10 @@ class GraphCreator(DataCreator):
         node_features_path = os.path.join(self.graph_save_dir, "node_features.pkl")
         node2cells_path = os.path.join(self.graph_save_dir, "node2cells.pkl")
         regions_path = os.path.join(self.graph_save_dir, "regions.pkl")
-        self.paths = [edge_index_path, node_features_path, node2cells_path, regions_path]
+        labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
+        self.paths = [edge_index_path, node_features_path, node2cells_path, regions_path, labels_path]
 
-    def create_graph(self, grid):
+    def create_graph(self, grid, crime_type):
         crime_df = super().create()
 
         if self.normalize_coords:
@@ -70,6 +77,7 @@ class GraphCreator(DataCreator):
         self.node_features = self.__create_node_features(crime_df, nodes, polygons)
         self.regions = regions
         self.__create_node_cells(regions, coord_grid)
+        self.labels = self.__create_labels(crime_df[crime_df[crime_type] == 1], nodes)
 
         if self.plot:
             plot_regions(polygons, coord_range=self.coord_range)
@@ -86,6 +94,28 @@ class GraphCreator(DataCreator):
         self.__save_data()
         print(f"Data Creation finished, data saved under {self.graph_save_dir}")
 
+    def __create_labels(self, crime_df, nodes):
+        arg_list = []
+        for t in self.date_r:
+            arg_list.append((crime_df, t, nodes))
+
+        with multiprocessing.Pool(processes=self.num_process) as pool:
+            labels = list(tqdm(pool.imap(self.match_event_node, arg_list), total=len(arg_list)))
+
+        return labels
+
+    def match_event_node(self, args):
+        crime_df, t, nodes = args
+        label_arr = []
+        t_1 = t + pd.DateOffset(hours=self.temp_res)
+        cropped_df = crime_df.loc[(t <= crime_df.index) & (crime_df.index < t_1)]
+        if not cropped_df.empty:
+            locs = cropped_df[["Longitude", "Latitude"]].values
+            dist_mat = self.calculate_distances(locs, nodes, self.num_process)
+            node_contains = np.argsort(dist_mat, axis=1)[:, :self.k]
+            label_arr = np.concatenate([locs, node_contains], axis=1)
+        return label_arr
+
     def load(self):
         loaded = False
         if all([os.path.exists(path) for path in self.paths]):
@@ -97,6 +127,8 @@ class GraphCreator(DataCreator):
                 self.node2cells = pkl.load(f)
             with open(self.paths[3], "rb") as f:
                 self.regions = pkl.load(f)
+            with open(self.paths[4], "rb") as f:
+                self.labels = pkl.load(f)
             loaded = True
         return loaded
 
@@ -144,7 +176,7 @@ class GraphCreator(DataCreator):
             self.node2cells[i] = region_cells
 
     def __save_data(self):
-        items = [self.edge_index, self.node_features, self.node2cells, self.regions]
+        items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.labels]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)
@@ -248,3 +280,35 @@ class GraphCreator(DataCreator):
                 max_sum = max(region_sums)
 
         return best_indices
+
+    @staticmethod
+    def calculate_distances(unk_locs, knw_locs, num_processes):
+        """
+        Calculates distance matrix.
+
+        :param np.ndarray unk_locs: (N, 2)
+        :param np.ndarray knw_locs: (M, 2)
+        :param int num_processes:
+        :return: distance matrix (M, N)
+        :rtype: np.ndarray
+        """
+
+        def l2_dist(x, y):
+            """
+            calculates distance between vector and point as elementwise
+
+            :param np.ndarray x: (2,)
+            :param np.ndarray y: (N, 2)
+            :return: distance vector (N,2)
+            :rtype: np.ndarray
+            """
+            d = np.sum((y - x) ** 2, axis=1)
+            return d
+
+        num_unk_points = unk_locs.shape[0]
+        arg_list = [(unk_locs[i], knw_locs) for i in range(num_unk_points)]
+        with ThreadPoolExecutor(max_workers=num_processes) as executor:
+            D = executor.map(lambda p: l2_dist(*p), arg_list)
+            D = np.stack(list(D), axis=0)
+        return D
+

@@ -8,7 +8,8 @@ class GraphDataset(Dataset):
         super(GraphDataset, self).__init__(in_data, labels, window_in_len, window_out_len, batch_size, shuffle)
         self.regions = regions
         self.edge_index = edge_index
-        self.labels = flatten_labels(labels, regions)
+        # self.labels = flatten_labels(labels, regions)
+        self.labels = labels
 
     def __next__(self):
         all_data = super().__next__()
@@ -16,6 +17,12 @@ class GraphDataset(Dataset):
         # generate
         for i in range(self.num_iter):
             node_features = torch.from_numpy(all_data[i][0])
-            labels = torch.from_numpy(all_data[i][1])[:, 0]
+            labels = self.__convert_tensor(all_data[i][1])
             edge_index = torch.from_numpy(self.edge_index)
             yield node_features, labels, edge_index
+
+    def __convert_tensor(self, label_batch):
+        batch_list = []
+        for i in range(self.batch_size):
+            batch_list.append(torch.from_numpy(label_batch[i][0]))
+        return batch_list
