@@ -3,18 +3,21 @@ import time
 import pickle as pkl
 from copy import deepcopy
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+from torch.distributions.multivariate_normal import MultivariateNormal
 
-from helpers.graph_helper import get_probs
+from helpers.graph_helper import get_probs, sample_dist, convert_grid
 from helpers.static_helper import bin_pred, f1_score
 
 
 class Trainer:
     def __init__(self, num_epochs, early_stop_tolerance, clip, optimizer, loss_function,
-                 learning_rate, weight_decay, momentum, device, save_dir, node2cell=None, regions=None, plot_lr=True):
+                 learning_rate, weight_decay, momentum, device, save_dir, node2cell=None, regions=None, nodes=None,
+                 plot_lr=True, coord_range=None, spatial_res=None):
         self.num_epochs = num_epochs
         self.clip = clip
         self.optimizer = optimizer
@@ -26,8 +29,11 @@ class Trainer:
         self.loss_function = loss_function
         self.save_dir = save_dir
         self.plot_lr = plot_lr
-        self.custom_losses = ["prob_loss"]
+        self.custom_losses = ["prob_loss", "likelihood"]
         self.regions = regions
+        self.nodes = torch.from_numpy(nodes).to(self.device).float()
+        self.coord_range = coord_range
+        self.spatial_res = spatial_res
 
         if node2cell is not None:
             self.node2cell = {}
@@ -37,6 +43,7 @@ class Trainer:
         self.criterion_dict = {
             "MSE": nn.MSELoss(),
             "BCE": nn.BCELoss(),
+            "likelihood": self.__likelihood_loss,
             "prob_loss": self.__prob_loss
         }
 
@@ -143,17 +150,22 @@ class Trainer:
         running_loss = 0
         for idx, batch in enumerate(generator.generate(mode)):
             print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)), flush=True, end='')
+            if idx + 1 == generator.num_iter(mode):
+                calculate_score = True
+            else:
+                calculate_score = False
             loss = self.__step(model=model,
                                inputs=batch,
                                mode=mode,
                                optimizer=optimizer,
                                dataset_name=generator.dataset_name,
-                               collect_outputs=collect_outputs)
+                               collect_outputs=collect_outputs,
+                               calculate_score=calculate_score)
             running_loss += loss
         running_loss /= (idx + 1)
         return running_loss
 
-    def __step(self, model, inputs, optimizer, mode, dataset_name, collect_outputs):
+    def __step(self, model, inputs, optimizer, mode, dataset_name, collect_outputs, calculate_score):
         if optimizer:
             optimizer.zero_grad()
 
@@ -164,7 +176,7 @@ class Trainer:
         else:
             pred = model.forward(x)
 
-        loss, pred = self.__get_loss(pred, y)
+        loss, pred = self.__get_loss(pred, y, calculate_score=calculate_score)
 
         if optimizer is not None:
             loss.backward()
@@ -176,21 +188,22 @@ class Trainer:
             optimizer.step()
 
         loss = loss.detach().cpu().numpy()
-        pred = pred.detach().cpu().numpy()
-        y = y.detach().cpu().numpy()
-
-        if self.loss_function == "MSE":
-            y = (y > 0).astype(int)
-
+        # pred = pred.detach().cpu().numpy()
+        # y = y.detach().cpu().numpy()
+        #
+        # if self.loss_function == "MSE":
+        #     y = (y > 0).astype(int)
+        #
         if collect_outputs:
             self.model_step_preds[mode].append(pred)
             self.model_step_labels[mode].append(y)
 
         # calc f1 score
-        pred = bin_pred(pred=pred.flatten(), label=y.flatten())
-        f1 = f1_score(y_true=y.flatten(), y_pred=pred)
+        # pred = bin_pred(pred=pred.flatten(), label=y.flatten())
+        # f1 = f1_score(y_true=y.flatten(), y_pred=pred)
 
-        print(f"Loss: {loss}, F1 Score: {f1}")
+        # print(f"Loss: {loss}, F1 Score: {f1}")
+        print(f"Loss: {loss}")
         return loss
 
     def __get_loss(self, pred, y, **kwargs):
@@ -207,8 +220,56 @@ class Trainer:
         loss = criterion(batch_prob, y)
         return loss, batch_prob
 
+    def __likelihood_loss(self, pred, y, calculate_score=False):
+        pred_mu, pred_sigma = pred
+        plt.figure()
+        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
+        plt.xlim(0, 1)
+        plt.ylim(0, 1)
+        plt.show()
+        total_loss = torch.tensor(0).to("cuda").float()
+        counter = 0
+        batch_dists = []
+        for i in range(pred_mu.shape[0]):
+            dists = []
+            for j in range(pred_mu.shape[1]):
+                mu = pred_mu[i, j]
+                sigma = torch.eye(2).to("cuda") * pred_sigma[i, j]
+                m = MultivariateNormal(mu.T, sigma)
+                dists.append(m)
+            for k in range(len(y[i])):
+                nodes = y[i][k, 2:4]
+                for n in nodes:
+                    log_likes = dists[int(n)].log_prob(y[i][k, :2])
+                    total_loss += -torch.sum(log_likes)
+                counter += 1
+            batch_dists.append(dists)
+        total_loss /= counter
+
+        dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
+        total_loss += 0.1 * dist_nodes
+
+        if calculate_score:
+            grid_pred = sample_dist(batch_dists, coord_range=self.coord_range, grid_shape=self.spatial_res)
+            grid_label = []
+            for i in range(len(y)):
+                grid = convert_grid(y[i][:, :2].detach().cpu().numpy(),
+                                    coord_range=self.coord_range, grid_shape=self.spatial_res)
+                grid = (grid > 0).astype(int)
+                grid_label.append(grid)
+            grid_label = np.stack(grid_label).flatten()
+            grid_pred = bin_pred(grid_pred.flatten(), grid_label)
+            score = f1_score(grid_label, grid_pred)
+            print(f"F1 Score: {score:.5f}")
+
+        return total_loss, pred
+
     def __prep_input(self, x):
-        x = x.float().to(self.device)
+        if isinstance(x, list):
+            x = [x[i].float().to(self.device) for i in range(len(x))]
+        else:
+            x = x.float().to(self.device)
         return x
 
     def __save_model(self, model):

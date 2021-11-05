@@ -75,6 +75,35 @@ def get_probs(pred, node2cell):
     return batch_prob
 
 
+def sample_dist(batch_dist, grid_shape, coord_range):
+    batch_size = len(batch_dist)
+    batch_grid = []
+    for i in range(batch_size):
+        samples = []
+        dists = batch_dist[i]
+        for j in range(len(dists)):
+            samples.append(dists[j].sample((1000,)).cpu().numpy())
+        samples = np.concatenate(samples)
+        grid = convert_grid(samples, grid_shape, coord_range)
+        batch_grid.append(grid)
+    batch_grid = np.stack(batch_grid)
+    return batch_grid
+
+
+def convert_grid(in_arr, grid_shape, coord_range):
+    m, n = grid_shape
+    x_ticks = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
+    y_ticks = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
+    grid = np.zeros((m, n))
+    for j in range(m):
+        for i in range(n):
+            lat_idx = (y_ticks[j] < in_arr[:, 1]) & (in_arr[:, 1] <= y_ticks[j + 1])
+            lon_idx = (x_ticks[i] < in_arr[:, 0]) & (in_arr[:, 0] <= x_ticks[i + 1])
+            grid[m - j - 1, i] = in_arr[lat_idx & lon_idx].sum()
+
+    return grid
+
+
 def __calc_prob(x, mu, sigma):
     x1 = (x[:, 0] - mu) / (sigma * 1.41)
     x2 = (x[:, 1] - mu) / (sigma * 1.41)

@@ -68,7 +68,10 @@ def run():
             trainer = Trainer(**config.trainer_params,
                               save_dir=date_dir,
                               node2cell=graph_creator.node2cells,
-                              regions=graph_creator.regions)
+                              regions=graph_creator.regions,
+                              nodes=graph_creator.node_features[0, :, :2],
+                              coord_range=[[0, 1], [0, 1]],
+                              spatial_res=config.grid_params["spatial_res"])
 
             # train model
             trainer.fit(model=model, batch_generator=generator)

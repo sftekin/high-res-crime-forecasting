@@ -21,8 +21,9 @@ class GraphDataset(Dataset):
             edge_index = torch.from_numpy(self.edge_index)
             yield node_features, labels, edge_index
 
-    def __convert_tensor(self, label_batch):
+    @staticmethod
+    def __convert_tensor(label_batch):
         batch_list = []
-        for i in range(self.batch_size):
+        for i in range(len(label_batch)):
             batch_list.append(torch.from_numpy(label_batch[i][0]))
         return batch_list
