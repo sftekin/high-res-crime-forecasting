@@ -52,10 +52,13 @@ def run():
         # grid_crimes = [grid_creator.load_grid(c)[..., [2]] for c in grid_creator.crime_types]
         grid = grid_creator.load_grid(dataset_name="THEFT")
 
-        labels = (grid > 0).astype(int)
+        if config.trainer_params["loss_function"] == "BCE":
+            labels = (grid[..., [2]] > 0).astype(int)
+        else:
+            labels = grid[..., [2]]
 
         generator = BatchGenerator(in_data=grid[..., [2]],
-                                   labels=grid[..., [2]],
+                                   labels=labels,
                                    set_ids=set_ids,
                                    batch_gen_params=config.batch_gen_params)
 

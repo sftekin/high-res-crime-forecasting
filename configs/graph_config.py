@@ -23,14 +23,15 @@ class GraphConfig(Config):
 
         self.trainer_params = {
             "device": 'cuda',
-            "num_epochs": 100,
+            "num_epochs": 40,
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0.00023,
             "learning_rate": 0.003,
             "clip": 5,
             "early_stop_tolerance": 10,
-            "loss_function": "likelihood"  # prob_loss
+            "loss_function": "likelihood",  # or prob_loss
+            "node_dist_constant": 0.001
         }
 
         self.model_params = {

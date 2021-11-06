@@ -10,14 +10,14 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.distributions.multivariate_normal import MultivariateNormal
 
-from helpers.graph_helper import get_probs, sample_dist, convert_grid
+from helpers.graph_helper import get_probs, sample_dist, get_grid_label
 from helpers.static_helper import bin_pred, f1_score
 
 
 class Trainer:
     def __init__(self, num_epochs, early_stop_tolerance, clip, optimizer, loss_function,
                  learning_rate, weight_decay, momentum, device, save_dir, node2cell=None, regions=None, nodes=None,
-                 plot_lr=True, coord_range=None, spatial_res=None):
+                 plot_lr=True, coord_range=None, spatial_res=None, node_dist_constant=0.1, k_nearest=None):
         self.num_epochs = num_epochs
         self.clip = clip
         self.optimizer = optimizer
@@ -34,6 +34,8 @@ class Trainer:
         self.nodes = torch.from_numpy(nodes).to(self.device).float()
         self.coord_range = coord_range
         self.spatial_res = spatial_res
+        self.node_dist_constant = node_dist_constant
+        self.k_nearest = k_nearest
 
         if node2cell is not None:
             self.node2cell = {}
@@ -150,7 +152,7 @@ class Trainer:
         running_loss = 0
         for idx, batch in enumerate(generator.generate(mode)):
             print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)), flush=True, end='')
-            if idx + 1 == generator.num_iter(mode):
+            if idx + 1 == generator.num_iter(mode) or mode in ["val"]:
                 calculate_score = True
             else:
                 calculate_score = False
@@ -176,7 +178,7 @@ class Trainer:
         else:
             pred = model.forward(x)
 
-        loss, pred = self.__get_loss(pred, y, calculate_score=calculate_score)
+        loss = self.__get_loss(pred, y, calculate_score=calculate_score)
 
         if optimizer is not None:
             loss.backward()
@@ -187,44 +189,49 @@ class Trainer:
             # take step in classifier's optimizer
             optimizer.step()
 
-        loss = loss.detach().cpu().numpy()
-        # pred = pred.detach().cpu().numpy()
-        # y = y.detach().cpu().numpy()
-        #
-        # if self.loss_function == "MSE":
-        #     y = (y > 0).astype(int)
-        #
         if collect_outputs:
-            self.model_step_preds[mode].append(pred)
-            self.model_step_labels[mode].append(y)
+            self.__collect_outputs(pred, y, mode)
 
-        # calc f1 score
-        # pred = bin_pred(pred=pred.flatten(), label=y.flatten())
-        # f1 = f1_score(y_true=y.flatten(), y_pred=pred)
-
-        # print(f"Loss: {loss}, F1 Score: {f1}")
+        loss = loss.detach().cpu().numpy()
         print(f"Loss: {loss}")
         return loss
 
-    def __get_loss(self, pred, y, **kwargs):
+    def __get_loss(self, pred, y, calculate_score):
         if self.loss_function in self.custom_losses:
-            loss, pred = self.criterion_dict[self.loss_function](pred=pred, y=y, **kwargs)
+            loss = self.criterion_dict[self.loss_function](pred=pred, y=y, calculate_score=calculate_score)
         else:
             loss = self.criterion_dict[self.loss_function](pred, y)
 
-        return loss, pred
+            if calculate_score:
+                y_pred = pred.detach().cpu().numpy()
+                y_true = y.detach().cpu().numpy()
+
+                if self.loss_function == "MSE":
+                    y_true = (y_true > 0).astype(int)
+
+                # calc f1 score
+                y_pred = bin_pred(pred=y_pred.flatten(), label=y_true.flatten())
+                f1 = f1_score(y_true=y_true.flatten(), y_pred=y_pred)
+                print(f"F1 Score: {f1}")
+        return loss
 
     def __prob_loss(self, pred, y):
         criterion = self.criterion_dict["BCE"]
         batch_prob = get_probs(pred, node2cell=self.node2cell)
         loss = criterion(batch_prob, y)
-        return loss, batch_prob
+
+        y_pred = bin_pred(pred=batch_prob.detach().cpu().numpy().flatten(),
+                          label=y.detach().cpu().numpy().flatten())
+        f1 = f1_score(y_true=y.detach().cpu().numpy().flatten().flatten(), y_pred=y_pred)
+        print(f"F1 Score: {f1}")
+        return loss
 
     def __likelihood_loss(self, pred, y, calculate_score=False):
         pred_mu, pred_sigma = pred
         plt.figure()
         plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
         plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
+        # plt.title(f"F1 Score: {score:.5f}")
         plt.xlim(0, 1)
         plt.ylim(0, 1)
         plt.show()
@@ -239,31 +246,25 @@ class Trainer:
                 m = MultivariateNormal(mu.T, sigma)
                 dists.append(m)
             for k in range(len(y[i])):
-                nodes = y[i][k, 2:4]
+                nodes = y[i][k, 2:2+self.k_nearest]  # get the nearby nodes
                 for n in nodes:
-                    log_likes = dists[int(n)].log_prob(y[i][k, :2])
+                    log_likes = dists[int(n)].log_prob(y[i][k, :2])  # update them
                     total_loss += -torch.sum(log_likes)
                 counter += 1
             batch_dists.append(dists)
         total_loss /= counter
 
         dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
-        total_loss += 0.1 * dist_nodes
+        total_loss += self.node_dist_constant * dist_nodes
 
         if calculate_score:
-            grid_pred = sample_dist(batch_dists, coord_range=self.coord_range, grid_shape=self.spatial_res)
-            grid_label = []
-            for i in range(len(y)):
-                grid = convert_grid(y[i][:, :2].detach().cpu().numpy(),
-                                    coord_range=self.coord_range, grid_shape=self.spatial_res)
-                grid = (grid > 0).astype(int)
-                grid_label.append(grid)
-            grid_label = np.stack(grid_label).flatten()
-            grid_pred = bin_pred(grid_pred.flatten(), grid_label)
+            grid_pred = sample_dist(batch_dists, coord_range=self.coord_range, grid_shape=self.spatial_res).flatten()
+            grid_label = get_grid_label(y, coord_range=self.coord_range, grid_shape=self.spatial_res).flatten()
+            grid_pred = bin_pred(grid_pred, grid_label)
             score = f1_score(grid_label, grid_pred)
             print(f"F1 Score: {score:.5f}")
 
-        return total_loss, pred
+        return total_loss
 
     def __prep_input(self, x):
         if isinstance(x, list):
@@ -271,6 +272,17 @@ class Trainer:
         else:
             x = x.float().to(self.device)
         return x
+
+    def __collect_outputs(self, pred, y, mode):
+        def detach_all(x):
+            if isinstance(x, list) or isinstance(x, tuple):
+                x = [x[i].detach().cpu().numpy() for i in range(len(x))]
+            else:
+                x = x.detach().cpu().numpy()
+            return x
+
+        self.model_step_preds[mode].append(detach_all(pred))
+        self.model_step_labels[mode].append(detach_all(y))
 
     def __save_model(self, model):
         model_path = os.path.join(self.save_dir, "model.pkl")

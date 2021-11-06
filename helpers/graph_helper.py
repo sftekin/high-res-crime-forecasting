@@ -90,6 +90,21 @@ def sample_dist(batch_dist, grid_shape, coord_range):
     return batch_grid
 
 
+def get_grid_label(label, coord_range, grid_shape):
+    batch_label = []
+    for i in range(len(label)):
+        if isinstance(label[i], torch.Tensor):
+            y = label[i].detach().cpu().numpy()
+        else:
+            y = label[i]
+        grid = convert_grid(y[:, :2],
+                            coord_range=coord_range, grid_shape=grid_shape)
+        grid = (grid > 0).astype(int)
+        batch_label.append(grid)
+    batch_label = np.stack(batch_label)
+    return batch_label
+
+
 def convert_grid(in_arr, grid_shape, coord_range):
     m, n = grid_shape
     x_ticks = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)

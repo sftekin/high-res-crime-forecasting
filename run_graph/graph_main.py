@@ -1,7 +1,10 @@
 import os
+import pickle as pkl
 
 import pandas as pd
 import numpy as np
+import torch
+from torch.distributions.multivariate_normal import MultivariateNormal
 
 from configs.graph_config import GraphConfig
 from data_generators.graph_creator import GraphCreator
@@ -9,7 +12,8 @@ from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
 from trainer import Trainer
 from models.graph_model import GraphModel
-from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date, calculate_metrics
+from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date, bin_pred, f1_score
+from helpers.graph_helper import sample_dist, get_grid_label
 
 
 def run():
@@ -71,7 +75,8 @@ def run():
                               regions=graph_creator.regions,
                               nodes=graph_creator.node_features[0, :, :2],
                               coord_range=[[0, 1], [0, 1]],
-                              spatial_res=config.grid_params["spatial_res"])
+                              spatial_res=config.grid_params["spatial_res"],
+                              k_nearest=2)
 
             # train model
             trainer.fit(model=model, batch_generator=generator)
@@ -79,9 +84,62 @@ def run():
             # perform prediction
             trainer.transform(model=model, batch_generator=generator)
 
+            print(f"Experiment finished for {c}, calculating scores and obtaining samples")
+            pred_dict = trainer.model_step_preds
+            label_dict = trainer.model_step_labels
+            stats = get_stats(pred_dict, label_dict,
+                              coord_range=[[0, 1], [0, 1]],
+                              grid_shape=config.grid_params["spatial_res"])
+            stats_path = os.path.join(date_dir, "stats.pkl")
+            with open(stats_path, "wb") as f:
+                pkl.dump(stats, f)
+            print(stats[0])
 
-def create_labels(crime_df, date_r, crime_type):
-    print()
+
+def get_stats(pred_dict, label_dict, coord_range, grid_shape):
+    scores_dict = {}
+    preds_dict = {}
+    labels_dict = {}
+
+    for key in pred_dict.keys():
+        print(key)
+        pred_list = pred_dict[key]
+        label_list = label_dict[key]
+
+        pred_arr = []
+        label_arr = []
+        score = 0
+        for t in range(len(pred_list)):
+            print(t)
+            pred_mu, pred_sigma = pred_list[t]
+            label = label_list[t]
+
+            batch_dists = []
+            for i in range(pred_mu.shape[0]):
+                dists = []
+                for j in range(pred_mu.shape[1]):
+                    mu = torch.from_numpy(pred_mu[i, j])
+                    sigma = torch.eye(2) * torch.from_numpy(pred_sigma[i, j])
+                    m = MultivariateNormal(mu.T, sigma)
+                    dists.append(m)
+                batch_dists.append(dists)
+
+            grid_pred = sample_dist(batch_dists, coord_range=coord_range, grid_shape=grid_shape)
+            grid_label = get_grid_label(label, coord_range=coord_range, grid_shape=grid_shape)
+            pred = bin_pred(grid_pred.flatten(), grid_label.flatten())
+            score += f1_score(grid_label.flatten(), pred)
+
+            pred_arr.append(grid_pred)
+            label_arr.append(grid_label)
+
+        mean_score = score / len(pred_list)
+        print(f"{key}, F1 Score: {mean_score}")
+        scores_dict[key] = mean_score
+        preds_dict[key] = np.concatenate(pred_arr)
+        labels_dict[key] = np.concatenate(label_arr)
+        scores_dict[key] = mean_score
+
+    return scores_dict, preds_dict, labels_dict
 
 
 if __name__ == '__main__':
