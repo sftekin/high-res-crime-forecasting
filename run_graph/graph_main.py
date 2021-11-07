@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
+from sklearn.metrics import average_precision_score
 
 from configs.graph_config import GraphConfig
 from data_generators.graph_creator import GraphCreator
@@ -43,6 +44,10 @@ def run():
         train_ids = get_set_ids(grid_creator.date_r, start_date, train_end_date)
         val_ids = get_set_ids(grid_creator.date_r, train_end_date, val_end_date)
         test_ids = get_set_ids(grid_creator.date_r, val_end_date, test_end_date)
+
+        win_in_len = config.batch_gen_params["window_in_len"]
+        val_ids = np.concatenate([train_ids[-win_in_len:], val_ids])
+        test_ids = np.concatenate([val_ids[-win_in_len:], test_ids])
         set_ids = [train_ids, val_ids, test_ids]
 
         for c in grid_creator.crime_types:
@@ -77,7 +82,8 @@ def run():
                               nodes=graph_creator.node_features[0, :, :2],
                               coord_range=[[0, 1], [0, 1]],
                               spatial_res=config.grid_params["spatial_res"],
-                              k_nearest=5)
+                              k_nearest=5,
+                              edge_weights=graph_creator.edge_weights)
 
             # train model
             trainer.fit(model=model, batch_generator=generator)
@@ -104,16 +110,15 @@ def get_stats(pred_dict, label_dict, coord_range, grid_shape):
 
     for key in pred_dict.keys():
         print(key)
-        pred_list = pred_dict[key]
-        label_list = label_dict[key]
+        pred_batches = pred_dict[key]
+        label_batches = label_dict[key]
 
         pred_arr = []
         label_arr = []
-        score = 0
-        for t in range(len(pred_list)):
-            print(t)
-            pred_mu, pred_sigma = pred_list[t]
-            label = label_list[t]
+        for batch_id in range(len(pred_batches)):
+            print(batch_id)
+            pred_mu, pred_sigma = pred_batches[batch_id]
+            label = label_batches[batch_id]
 
             batch_dists = []
             for i in range(pred_mu.shape[0]):
@@ -127,18 +132,20 @@ def get_stats(pred_dict, label_dict, coord_range, grid_shape):
 
             grid_pred = sample_dist(batch_dists, coord_range=coord_range, grid_shape=grid_shape)
             grid_label = get_grid_label(label, coord_range=coord_range, grid_shape=grid_shape)
-            pred = bin_pred(grid_pred.flatten(), grid_label.flatten())
-            score += f1_score(grid_label.flatten(), pred)
 
             pred_arr.append(grid_pred)
             label_arr.append(grid_label)
 
-        mean_score = score / len(pred_list)
-        print(f"{key}, F1 Score: {mean_score}")
-        scores_dict[key] = mean_score
         preds_dict[key] = np.concatenate(pred_arr)
         labels_dict[key] = np.concatenate(label_arr)
-        scores_dict[key] = mean_score
+
+        pred = bin_pred(preds_dict[key].flatten(), labels_dict[key].flatten())
+        f1 = f1_score(labels_dict[key].flatten(), pred)
+        ap = average_precision_score(labels_dict[key].flatten(), preds_dict[key].flatten())
+
+        print(f"{key}, F1 Score: {f1} AP Score: {ap}")
+        scores_dict[key] = (f1, ap)
+        scores_dict[key] = (f1, ap)
 
     return scores_dict, preds_dict, labels_dict
 

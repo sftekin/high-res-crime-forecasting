@@ -17,8 +17,9 @@ from helpers.static_helper import bin_pred, f1_score
 
 class Trainer:
     def __init__(self, num_epochs, early_stop_tolerance, clip, optimizer, loss_function,
-                 learning_rate, weight_decay, momentum, device, save_dir, node2cell=None, regions=None, nodes=None,
-                 plot_lr=True, coord_range=None, spatial_res=None, node_dist_constant=0.1, k_nearest=None):
+                 learning_rate, weight_decay, momentum, device, save_dir, node2cell=None, edge_weights=None,
+                 regions=None, nodes=None, plot_lr=True, coord_range=None, spatial_res=None,
+                 node_dist_constant=0.1, k_nearest=None):
         self.num_epochs = num_epochs
         self.clip = clip
         self.optimizer = optimizer
@@ -37,6 +38,7 @@ class Trainer:
         self.spatial_res = spatial_res
         self.node_dist_constant = node_dist_constant
         self.k_nearest = k_nearest
+        self.edge_weights = edge_weights
 
         if node2cell is not None:
             self.node2cell = {}
@@ -180,7 +182,8 @@ class Trainer:
         x, y = self.__prep_input(inputs[0]), self.__prep_input(inputs[1])
         if dataset_name == "graph":
             edge_index = inputs[2].to(self.device)
-            pred = model.forward(x, edge_index)
+            edge_weight = torch.from_numpy(self.edge_weights).float().to(self.device)
+            pred = model.forward(x, edge_index, edge_weight)
         else:
             pred = model.forward(x)
 
@@ -252,15 +255,16 @@ class Trainer:
                 sigma = torch.eye(2).to("cuda") * pred_sigma[i, j]
                 m = MultivariateNormal(mu.T, sigma)
                 dists.append(m)
+            batch_dists.append(dists)
+
             for k in range(len(y[i])):
                 nodes = y[i][k, 2:2 + self.k_nearest]  # get the nearby nodes
                 for n in nodes:
                     log_likes = dists[int(n)].log_prob(y[i][k, :2])  # update them
                     total_loss += -torch.sum(log_likes)
                     counter += 1
-            batch_dists.append(dists)
-        total_loss /= counter
 
+        total_loss /= counter
         dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
         total_loss += self.node_dist_constant * dist_nodes
 
@@ -270,8 +274,9 @@ class Trainer:
             grid_label = get_grid_label(y, coord_range=self.coord_range, grid_shape=self.spatial_res).flatten()
             ap = average_precision_score(grid_label, grid_pred)
             grid_pred = bin_pred(grid_pred, grid_label)
-            score = f1_score(grid_label, grid_pred)
-            print(f"F1 Score: {score:.5f}, AP: {ap:.5f}")
+            f1 = f1_score(grid_label, grid_pred)
+            print(f"F1 Score: {f1:.5f}, AP: {ap:.5f}")
+            score = ap
 
         return total_loss, score
 

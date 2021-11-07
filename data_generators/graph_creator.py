@@ -26,6 +26,7 @@ class GraphCreator(DataCreator):
 
         self.node_features = None
         self.edge_index = None
+        self.edge_weights = None
         self.regions = None
         self.labels = None
         self.node2cells = {}
@@ -41,7 +42,9 @@ class GraphCreator(DataCreator):
         node2cells_path = os.path.join(self.graph_save_dir, "node2cells.pkl")
         regions_path = os.path.join(self.graph_save_dir, "regions.pkl")
         labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
-        self.paths = [edge_index_path, node_features_path, node2cells_path, regions_path, labels_path]
+        edge_weight_path = os.path.join(self.graph_save_dir, "edge_weight.pkl")
+        self.paths = [edge_index_path, node_features_path, node2cells_path,
+                      regions_path, labels_path, edge_weight_path]
 
     def create_graph(self, grid, crime_type):
         crime_df = super().create()
@@ -74,6 +77,7 @@ class GraphCreator(DataCreator):
 
         # create graph parameters
         self.edge_index = self.create_edge_index(edges)
+        self.edge_weights = self.create_edge_weights(nodes)
         self.node_features = self.__create_node_features(crime_df, nodes, polygons)
         self.regions = regions
         self.__create_node_cells(regions, coord_grid)
@@ -129,6 +133,8 @@ class GraphCreator(DataCreator):
                 self.regions = pkl.load(f)
             with open(self.paths[4], "rb") as f:
                 self.labels = pkl.load(f)
+            with open(self.paths[5], "rb") as f:
+                self.edge_weights = pkl.load(f)
             loaded = True
         return loaded
 
@@ -176,7 +182,7 @@ class GraphCreator(DataCreator):
             self.node2cells[i] = region_cells
 
     def __save_data(self):
-        items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.labels]
+        items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.labels, self.edge_weights]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)
@@ -215,6 +221,14 @@ class GraphCreator(DataCreator):
                 edge_index.append([node_id, n])
         edge_index = np.array(edge_index).T
         return edge_index
+
+    def create_edge_weights(self, nodes):
+        weights = []
+        for i in range(self.edge_index.shape[1]):
+            n1, n2 = self.edge_index[:, i]
+            weights.append(np.sum((nodes[n1] - nodes[n2]) ** 2))
+        weights = np.array(weights)
+        return weights
 
     @staticmethod
     def get_in_range(cor_df, lt, ln):

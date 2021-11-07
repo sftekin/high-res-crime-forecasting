@@ -47,6 +47,10 @@ def run():
         train_ids = get_set_ids(grid_creator.date_r, start_date, train_end_date)
         val_ids = get_set_ids(grid_creator.date_r, train_end_date, val_end_date)
         test_ids = get_set_ids(grid_creator.date_r, val_end_date, test_end_date)
+
+        win_in_len = config.batch_gen_params["window_in_len"]
+        val_ids = np.concatenate([train_ids[-win_in_len:], val_ids])
+        test_ids = np.concatenate([val_ids[-win_in_len:], test_ids])
         set_ids = [train_ids, val_ids, test_ids]
 
         # grid_crimes = [grid_creator.load_grid(c)[..., [2]] for c in grid_creator.crime_types]
