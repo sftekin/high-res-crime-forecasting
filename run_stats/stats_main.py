@@ -12,7 +12,7 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning
 from configs.stats_config import StatsConfig
 from data_generators.grid_creator import GridCreator
 from helpers.static_helper import calculate_metrics, f1_score, get_save_dir, get_set_ids, get_set_end_date, bin_pred
-
+from sklearn.metrics import average_precision_score
 
 model_dispatcher = {
     "arima": ARIMA
@@ -96,9 +96,9 @@ def run():
             results_list.append(result)
             scores_list.append(scores)
 
-            print(f"Train Scores for the {crime}: F1: {scores['train']:.5f}")
-            print(f"Val Scores for the {crime}: F1: {scores['val']:.5f}")
-            print(f"Test Scores for the {crime}: F1: {scores['test']:.5f}")
+            print(f"Train Scores for the {crime}: F1: {scores['train'][0]:.5f}, AP: {scores['train'][1]:.5f}")
+            print(f"Val Scores for the {crime}: F1: {scores['val'][0]:.5f}, AP: {scores['val'][1]:.5f}")
+            print(f"Test Scores for the {crime}: F1: {scores['test'][0]:.5f}, AP: {scores['test'][1]:.5f}")
 
         results_save_path = os.path.join(save_dir, f"{start_date_str}_results.pkl")
         with open(results_save_path, "wb") as f:
@@ -139,9 +139,10 @@ def get_scores(result_dict):
     score_dict = {}
     for key, val in result_dict.items():
         pred, label = val
+        ap = average_precision_score(label.flatten(), pred.flatten())
         pred = bin_pred(pred.flatten(), label.flatten())
         f1 = f1_score(y_true=label.flatten(), y_pred=pred)
-        score_dict[key] = f1
+        score_dict[key] = (f1, ap)
 
     return score_dict
 

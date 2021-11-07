@@ -27,7 +27,7 @@ class GraphConfig(Config):
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0,
-            "learning_rate": 0.001,
+            "learning_rate": 0.002,
             "clip": 10,
             "early_stop_tolerance": 10,
             "loss_function": "likelihood",  # or prob_loss

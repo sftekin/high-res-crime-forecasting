@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.distributions.multivariate_normal import MultivariateNormal
+from sklearn.metrics import average_precision_score
 
 from helpers.graph_helper import get_probs, sample_dist, get_grid_label
 from helpers.static_helper import bin_pred, f1_score
@@ -267,9 +268,10 @@ class Trainer:
         if calculate_score:
             grid_pred = sample_dist(batch_dists, coord_range=self.coord_range, grid_shape=self.spatial_res).flatten()
             grid_label = get_grid_label(y, coord_range=self.coord_range, grid_shape=self.spatial_res).flatten()
+            ap = average_precision_score(grid_label, grid_pred)
             grid_pred = bin_pred(grid_pred, grid_label)
             score = f1_score(grid_label, grid_pred)
-            print(f"F1 Score: {score:.5f}")
+            print(f"F1 Score: {score:.5f}, AP: {ap:.5f}")
 
         return total_loss, score
 
