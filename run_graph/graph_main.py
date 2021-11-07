@@ -1,5 +1,6 @@
 import os
 import pickle as pkl
+import multiprocessing
 
 import pandas as pd
 import numpy as np
@@ -76,7 +77,7 @@ def run():
                               nodes=graph_creator.node_features[0, :, :2],
                               coord_range=[[0, 1], [0, 1]],
                               spatial_res=config.grid_params["spatial_res"],
-                              k_nearest=2)
+                              k_nearest=5)
 
             # train model
             trainer.fit(model=model, batch_generator=generator)

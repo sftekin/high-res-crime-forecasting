@@ -1,3 +1,5 @@
+import multiprocessing
+
 import torch
 import numpy as np
 import matplotlib.collections
@@ -109,14 +111,25 @@ def convert_grid(in_arr, grid_shape, coord_range):
     m, n = grid_shape
     x_ticks = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
     y_ticks = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
-    grid = np.zeros((m, n))
+
+    arg_list = []
     for j in range(m):
         for i in range(n):
-            lat_idx = (y_ticks[j] < in_arr[:, 1]) & (in_arr[:, 1] <= y_ticks[j + 1])
-            lon_idx = (x_ticks[i] < in_arr[:, 0]) & (in_arr[:, 0] <= x_ticks[i + 1])
-            grid[m - j - 1, i] = in_arr[lat_idx & lon_idx].sum()
+            arg_list.append([in_arr, x_ticks, y_ticks, (i, j)])
+
+    with multiprocessing.Pool(processes=16) as pool:
+        preds = list(pool.imap(upsample, arg_list))
+        grid = np.flip(np.array(preds).reshape(m, n), axis=0)
 
     return grid
+
+
+def upsample(args):
+    in_arr, x_ticks, y_ticks, (i, j) = args
+    lat_idx = (y_ticks[j] < in_arr[:, 1]) & (in_arr[:, 1] <= y_ticks[j + 1])
+    lon_idx = (x_ticks[i] < in_arr[:, 0]) & (in_arr[:, 0] <= x_ticks[i + 1])
+    sum = in_arr[lat_idx & lon_idx].sum()
+    return sum
 
 
 def __calc_prob(x, mu, sigma):

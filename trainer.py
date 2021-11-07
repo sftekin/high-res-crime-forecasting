@@ -68,23 +68,23 @@ class Trainer:
         val_loss = []
         tolerance = 0
         best_epoch = 0
-        best_val_loss = 1e9
+        best_val_score = 0
         best_dict = model.state_dict()
         for epoch in range(self.num_epochs):
             # train and validation loop
             start_time = time.time()
 
             # train
-            running_train_loss = self.__step_loop(model=model,
-                                                  generator=batch_generator,
-                                                  mode='train',
-                                                  optimizer=optimizer)
+            running_train_loss, _ = self.__step_loop(model=model,
+                                                     generator=batch_generator,
+                                                     mode='train',
+                                                     optimizer=optimizer)
 
             # validation
-            running_val_loss = self.__step_loop(model=model,
-                                                generator=batch_generator,
-                                                mode='val',
-                                                optimizer=None)
+            running_val_loss, running_val_score = self.__step_loop(model=model,
+                                                                   generator=batch_generator,
+                                                                   mode='val',
+                                                                   optimizer=None)
 
             epoch_time = time.time() - start_time
 
@@ -96,9 +96,9 @@ class Trainer:
             train_loss.append(running_train_loss)
             val_loss.append(running_val_loss)
 
-            if running_val_loss < best_val_loss:
+            if running_val_score > best_val_score:
                 best_epoch = epoch + 1
-                best_val_loss = running_val_loss
+                best_val_score = running_val_score
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
@@ -111,12 +111,13 @@ class Trainer:
                                                                 generator=batch_generator,
                                                                 mode=mode,
                                                                 optimizer=None,
-                                                                collect_outputs=True) for mode in
+                                                                collect_outputs=True)[0] for mode in
                                                ["train", "val", "train_val"]]
 
                 print("-*-" * 10)
-                message_str = "Early exiting from epoch: {}, \nTrain Loss: {:5f}, Val Loss: {:5f}, Eval Loss: {:.5f}."
-                print(message_str.format(best_epoch, tr_loss, vl_loss, eval_loss))
+                message_str = "Early exiting from epoch: {}, \nTrain Loss: {:5f}, Val Loss: {:5f}, Eval Loss: {:.5f}." \
+                              "Best Val Score {:.5f}"
+                print(message_str.format(best_epoch, tr_loss, vl_loss, eval_loss, best_val_score))
                 print("-*-" * 10)
 
                 # checkpoint
@@ -135,37 +136,41 @@ class Trainer:
             ax.set_title(f"Learning Curve lr: {self.learning_rate:.5f}")
             ax.set_xlabel("Epoch")
             ax.set_ylabel("Loss")
-            ax.set_yscale("log")
+            plt.savefig(os.path.join(self.save_dir, "lr_curve.png"), dpi=200)
             plt.show()
 
     def transform(self, model, batch_generator):
-        test_loss = self.__step_loop(model=model,
-                                     generator=batch_generator,
-                                     mode='test',
-                                     optimizer=None,
-                                     collect_outputs=True)
+        test_loss, _ = self.__step_loop(model=model,
+                                        generator=batch_generator,
+                                        mode='test',
+                                        optimizer=None,
+                                        collect_outputs=True)
         print('Test finished, test loss: {:.5f}'.format(test_loss))
         self.__save_model(model)
         self.__save_outputs()
 
     def __step_loop(self, model, generator, mode, optimizer, collect_outputs=False):
         running_loss = 0
+        running_score = 0
         for idx, batch in enumerate(generator.generate(mode)):
             print('\r{}:{}/{}'.format(mode, idx, generator.num_iter(mode)), flush=True, end='')
             if idx + 1 == generator.num_iter(mode) or mode in ["val"]:
                 calculate_score = True
             else:
                 calculate_score = False
-            loss = self.__step(model=model,
-                               inputs=batch,
-                               mode=mode,
-                               optimizer=optimizer,
-                               dataset_name=generator.dataset_name,
-                               collect_outputs=collect_outputs,
-                               calculate_score=calculate_score)
+            loss, score = self.__step(model=model,
+                                      inputs=batch,
+                                      mode=mode,
+                                      optimizer=optimizer,
+                                      dataset_name=generator.dataset_name,
+                                      collect_outputs=collect_outputs,
+                                      calculate_score=calculate_score)
+            if mode == "val":
+                running_score += score
             running_loss += loss
         running_loss /= (idx + 1)
-        return running_loss
+        running_score /= (idx + 1)
+        return running_loss, running_score
 
     def __step(self, model, inputs, optimizer, mode, dataset_name, collect_outputs, calculate_score):
         if optimizer:
@@ -178,7 +183,7 @@ class Trainer:
         else:
             pred = model.forward(x)
 
-        loss = self.__get_loss(pred, y, calculate_score=calculate_score)
+        loss, score = self.__get_loss(pred, y, calculate_score=calculate_score)
 
         if optimizer is not None:
             loss.backward()
@@ -194,14 +199,14 @@ class Trainer:
 
         loss = loss.detach().cpu().numpy()
         print(f"Loss: {loss}")
-        return loss
+        return loss, score
 
     def __get_loss(self, pred, y, calculate_score):
         if self.loss_function in self.custom_losses:
-            loss = self.criterion_dict[self.loss_function](pred=pred, y=y, calculate_score=calculate_score)
+            loss, score = self.criterion_dict[self.loss_function](pred=pred, y=y, calculate_score=calculate_score)
         else:
             loss = self.criterion_dict[self.loss_function](pred, y)
-
+            score = 0
             if calculate_score:
                 y_pred = pred.detach().cpu().numpy()
                 y_true = y.detach().cpu().numpy()
@@ -211,9 +216,10 @@ class Trainer:
 
                 # calc f1 score
                 y_pred = bin_pred(pred=y_pred.flatten(), label=y_true.flatten())
-                f1 = f1_score(y_true=y_true.flatten(), y_pred=y_pred)
-                print(f"F1 Score: {f1}")
-        return loss
+                score = f1_score(y_true=y_true.flatten(), y_pred=y_pred)
+                print(f"F1 Score: {score}")
+
+        return loss, score
 
     def __prob_loss(self, pred, y):
         criterion = self.criterion_dict["BCE"]
@@ -228,13 +234,13 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y, calculate_score=False):
         pred_mu, pred_sigma = pred
-        plt.figure()
-        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
-        plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
-        # plt.title(f"F1 Score: {score:.5f}")
-        plt.xlim(0, 1)
-        plt.ylim(0, 1)
-        plt.show()
+        # plt.figure()
+        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        # plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
+        # # plt.title(f"F1 Score: {score:.5f}")
+        # plt.xlim(0, 1)
+        # plt.ylim(0, 1)
+        # plt.show()
         total_loss = torch.tensor(0).to("cuda").float()
         counter = 0
         batch_dists = []
@@ -246,17 +252,18 @@ class Trainer:
                 m = MultivariateNormal(mu.T, sigma)
                 dists.append(m)
             for k in range(len(y[i])):
-                nodes = y[i][k, 2:2+self.k_nearest]  # get the nearby nodes
+                nodes = y[i][k, 2:2 + self.k_nearest]  # get the nearby nodes
                 for n in nodes:
                     log_likes = dists[int(n)].log_prob(y[i][k, :2])  # update them
                     total_loss += -torch.sum(log_likes)
-                counter += 1
+                    counter += 1
             batch_dists.append(dists)
         total_loss /= counter
 
         dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
         total_loss += self.node_dist_constant * dist_nodes
 
+        score = 0
         if calculate_score:
             grid_pred = sample_dist(batch_dists, coord_range=self.coord_range, grid_shape=self.spatial_res).flatten()
             grid_label = get_grid_label(y, coord_range=self.coord_range, grid_shape=self.spatial_res).flatten()
@@ -264,7 +271,7 @@ class Trainer:
             score = f1_score(grid_label, grid_pred)
             print(f"F1 Score: {score:.5f}")
 
-        return total_loss
+        return total_loss, score
 
     def __prep_input(self, x):
         if isinstance(x, list):
