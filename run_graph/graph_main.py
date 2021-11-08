@@ -15,7 +15,6 @@ from batch_generators.batch_generator import BatchGenerator
 from trainer import Trainer
 from models.graph_model import GraphModel
 from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date, bin_pred, f1_score
-from helpers.graph_helper import sample_dist, get_grid_label
 
 
 def run():
@@ -82,7 +81,7 @@ def run():
                               nodes=graph_creator.node_features[0, :, :2],
                               coord_range=[[0, 1], [0, 1]],
                               spatial_res=config.grid_params["spatial_res"],
-                              k_nearest=5,
+                              k_nearest=3,
                               edge_weights=graph_creator.edge_weights)
 
             # train model
@@ -91,63 +90,13 @@ def run():
             # perform prediction
             trainer.transform(model=model, batch_generator=generator)
 
-            print(f"Experiment finished for {c}, calculating scores and obtaining samples")
-            pred_dict = trainer.model_step_preds
-            label_dict = trainer.model_step_labels
-            stats = get_stats(pred_dict, label_dict,
-                              coord_range=[[0, 1], [0, 1]],
-                              grid_shape=config.grid_params["spatial_res"])
-            stats_path = os.path.join(date_dir, "stats.pkl")
+            print(f"Experiment finished for {c}")
+            stats = trainer.stats
+            for key, val in stats.items():
+                print(f"{key} F1 Score: {val[0]:.5f}")
+            stats_path = os.path.join(date_dir, "trainer.pkl")
             with open(stats_path, "wb") as f:
-                pkl.dump(stats, f)
-            print(stats[0])
-
-
-def get_stats(pred_dict, label_dict, coord_range, grid_shape):
-    scores_dict = {}
-    preds_dict = {}
-    labels_dict = {}
-
-    for key in pred_dict.keys():
-        print(key)
-        pred_batches = pred_dict[key]
-        label_batches = label_dict[key]
-
-        pred_arr = []
-        label_arr = []
-        for batch_id in range(len(pred_batches)):
-            print(batch_id)
-            pred_mu, pred_sigma = pred_batches[batch_id]
-            label = label_batches[batch_id]
-
-            batch_dists = []
-            for i in range(pred_mu.shape[0]):
-                dists = []
-                for j in range(pred_mu.shape[1]):
-                    mu = torch.from_numpy(pred_mu[i, j])
-                    sigma = torch.eye(2) * torch.from_numpy(pred_sigma[i, j])
-                    m = MultivariateNormal(mu.T, sigma)
-                    dists.append(m)
-                batch_dists.append(dists)
-
-            grid_pred = sample_dist(batch_dists, coord_range=coord_range, grid_shape=grid_shape)
-            grid_label = get_grid_label(label, coord_range=coord_range, grid_shape=grid_shape)
-
-            pred_arr.append(grid_pred)
-            label_arr.append(grid_label)
-
-        preds_dict[key] = np.concatenate(pred_arr)
-        labels_dict[key] = np.concatenate(label_arr)
-
-        pred = bin_pred(preds_dict[key].flatten(), labels_dict[key].flatten())
-        f1 = f1_score(labels_dict[key].flatten(), pred)
-        ap = average_precision_score(labels_dict[key].flatten(), preds_dict[key].flatten())
-
-        print(f"{key}, F1 Score: {f1} AP Score: {ap}")
-        scores_dict[key] = (f1, ap)
-        scores_dict[key] = (f1, ap)
-
-    return scores_dict, preds_dict, labels_dict
+                pkl.dump(trainer, f)
 
 
 if __name__ == '__main__':

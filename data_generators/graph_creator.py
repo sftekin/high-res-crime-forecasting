@@ -118,6 +118,8 @@ class GraphCreator(DataCreator):
             dist_mat = self.calculate_distances(locs, nodes, self.num_process)
             node_contains = np.argsort(dist_mat, axis=1)[:, :self.k]
             label_arr = np.concatenate([locs, node_contains], axis=1)
+        else:
+            label_arr = np.zeros((1, 2+self.k))
         return label_arr
 
     def load(self):

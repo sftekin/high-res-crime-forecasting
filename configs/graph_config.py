@@ -11,7 +11,7 @@ class GraphConfig(Config):
         }
 
         self.batch_gen_params = {
-            "window_in_len": 10,
+            "window_in_len": 5,
             "window_out_len": 1,
             "batch_size": 5,
             "shuffle": False,
@@ -27,7 +27,7 @@ class GraphConfig(Config):
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0,
-            "learning_rate": 0.002,
+            "learning_rate": 0.003,
             "clip": 10,
             "early_stop_tolerance": 10,
             "loss_function": "likelihood",  # or prob_loss

@@ -112,15 +112,15 @@ def run():
 def fit_transform(arg_list):
     model, sets = arg_list
     train_ts, val_ts, test_ts = sets
-    train_val_ts = np.concatenate([train_ts, val_ts])
 
     model.fit(endog=train_ts)
     train_pred = model.fitted_values()
-    val_pred = model.predict(endog=val_ts)
 
-    model.fit(endog=train_val_ts)
-    test_pred = model.predict(endog=test_ts)
+    all_data = np.concatenate(sets)
+    all_pred = model.predict(endog=all_data)
 
+    val_pred = all_pred[len(train_ts):len(train_ts)+len(val_ts)]
+    test_pred = all_pred[len(train_ts)+len(val_ts):]
     predictions = np.concatenate([train_pred, val_pred, test_pred])
     return predictions
 

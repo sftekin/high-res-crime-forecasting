@@ -1,10 +1,14 @@
+from tqdm import tqdm
 import multiprocessing
 
 import torch
 import numpy as np
+from torch.distributions.multivariate_normal import MultivariateNormal
 import matplotlib.collections
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
+
+from helpers.static_helper import bin_pred, f1_score
 
 
 def plot_poly(in_poly, ax, face_color="b", edge_color="k", alpha=0.5):
@@ -67,8 +71,8 @@ def get_probs(pred, node2cell):
         for node_id, cell_arr in node2cell.items():
             mu1, mu2 = pred_mu[batch_id, node_id]
             sigma1, sigma2 = pred_sigma[batch_id, node_id]
-            p1 = __calc_prob(cell_arr[:, 0], mu1, sigma1)
-            p2 = __calc_prob(cell_arr[:, 1], mu2, sigma2)
+            p1 = _calc_prob(cell_arr[:, 0], mu1, sigma1)
+            p2 = _calc_prob(cell_arr[:, 1], mu2, sigma2)
             prob.append(p1 * p2)
         prob = torch.cat(prob)
         batch_prob.append(prob)
@@ -77,7 +81,53 @@ def get_probs(pred, node2cell):
     return batch_prob
 
 
-def sample_dist(batch_dist, grid_shape, coord_range):
+def _calc_prob(x, mu, sigma):
+    x1 = (x[:, 0] - mu) / (sigma * 1.41)
+    x2 = (x[:, 1] - mu) / (sigma * 1.41)
+    prob = (torch.erf(x2) - torch.erf(x1)) * 0.5
+    return prob
+
+
+def get_graph_stats(pred_batches, label_batches, coord_range, grid_shape, num_process=16):
+    arg_list = []
+    for batch_id in range(len(pred_batches)):
+        arg_list.append([pred_batches[batch_id], label_batches[batch_id],
+                         coord_range, grid_shape])
+
+    with multiprocessing.Pool(processes=num_process) as pool:
+        grids = list(tqdm(pool.imap(_get_batch_stats, arg_list), total=len(arg_list)))
+
+    grid_pred = np.concatenate([grids[i][0] for i in range(len(grids))])
+    grid_label = np.concatenate([grids[i][1] for i in range(len(grids))])
+
+    pred = bin_pred(grid_pred.flatten(), grid_label.flatten())
+    f1 = f1_score(grid_label.flatten(), pred)
+
+    return f1, grid_pred, grid_label
+
+
+def _get_batch_stats(args):
+    model_out, label, coord_range, grid_shape = args
+    pred_mu, pred_sigma = model_out
+
+    batch_dists = []
+    for i in range(pred_mu.shape[0]):
+        dists = []
+        for j in range(pred_mu.shape[1]):
+            mu = torch.from_numpy(pred_mu[i, j])
+            sigma = torch.eye(2) * torch.from_numpy(pred_sigma[i, j])
+            m = MultivariateNormal(mu.T, sigma)
+            dists.append(m)
+        batch_dists.append(dists)
+
+    grid_pred = _sample_dist(batch_dists, coord_range=coord_range, grid_shape=grid_shape)
+    grid_label = _get_grid_label(label, coord_range=coord_range, grid_shape=grid_shape)
+    grids = [grid_pred, grid_label]
+
+    return grids
+
+
+def _sample_dist(batch_dist, grid_shape, coord_range):
     batch_size = len(batch_dist)
     batch_grid = []
     for i in range(batch_size):
@@ -86,54 +136,36 @@ def sample_dist(batch_dist, grid_shape, coord_range):
         for j in range(len(dists)):
             samples.append(dists[j].sample((1000,)).cpu().numpy())
         samples = np.concatenate(samples)
-        grid = convert_grid(samples, grid_shape, coord_range)
+        grid = _convert_grid(samples, grid_shape, coord_range)
         batch_grid.append(grid)
     batch_grid = np.stack(batch_grid)
     return batch_grid
 
 
-def get_grid_label(label, coord_range, grid_shape):
+def _get_grid_label(label, coord_range, grid_shape):
     batch_label = []
     for i in range(len(label)):
         if isinstance(label[i], torch.Tensor):
             y = label[i].detach().cpu().numpy()
         else:
             y = label[i]
-        grid = convert_grid(y[:, :2],
-                            coord_range=coord_range, grid_shape=grid_shape)
+        grid = _convert_grid(y[:, :2],
+                             coord_range=coord_range, grid_shape=grid_shape)
         grid = (grid > 0).astype(int)
         batch_label.append(grid)
     batch_label = np.stack(batch_label)
     return batch_label
 
 
-def convert_grid(in_arr, grid_shape, coord_range):
+def _convert_grid(in_arr, grid_shape, coord_range):
     m, n = grid_shape
     x_ticks = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
     y_ticks = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
-
-    arg_list = []
+    grid = np.zeros((m, n))
     for j in range(m):
         for i in range(n):
-            arg_list.append([in_arr, x_ticks, y_ticks, (i, j)])
-
-    with multiprocessing.Pool(processes=16) as pool:
-        preds = list(pool.imap(upsample, arg_list))
-        grid = np.flip(np.array(preds).reshape(m, n), axis=0)
+            lat_idx = (y_ticks[j] < in_arr[:, 1]) & (in_arr[:, 1] <= y_ticks[j + 1])
+            lon_idx = (x_ticks[i] < in_arr[:, 0]) & (in_arr[:, 0] <= x_ticks[i + 1])
+            grid[m - j - 1, i] = in_arr[lat_idx & lon_idx].sum()
 
     return grid
-
-
-def upsample(args):
-    in_arr, x_ticks, y_ticks, (i, j) = args
-    lat_idx = (y_ticks[j] < in_arr[:, 1]) & (in_arr[:, 1] <= y_ticks[j + 1])
-    lon_idx = (x_ticks[i] < in_arr[:, 0]) & (in_arr[:, 0] <= x_ticks[i + 1])
-    sum = in_arr[lat_idx & lon_idx].sum()
-    return sum
-
-
-def __calc_prob(x, mu, sigma):
-    x1 = (x[:, 0] - mu) / (sigma * 1.41)
-    x2 = (x[:, 1] - mu) / (sigma * 1.41)
-    prob = (torch.erf(x2) - torch.erf(x1)) * 0.5
-    return prob
