@@ -81,8 +81,8 @@ def run():
                               regions=graph_creator.regions,
                               nodes=graph_creator.node_features[0, :, :2],
                               coord_range=[[0, 1], [0, 1]],
-                              spatial_res=config.grid_params["spatial_res"],
-                              k_nearest=5,
+                              spatial_res=(50, 33),
+                              k_nearest=10,
                               edge_weights=graph_creator.edge_weights)
 
             # train model
@@ -96,7 +96,7 @@ def run():
             label_dict = trainer.model_step_labels
             stats = get_stats(pred_dict, label_dict,
                               coord_range=[[0, 1], [0, 1]],
-                              grid_shape=config.grid_params["spatial_res"])
+                              grid_shape=(50, 33))
             stats_path = os.path.join(date_dir, "stats.pkl")
             with open(stats_path, "wb") as f:
                 pkl.dump(stats, f)

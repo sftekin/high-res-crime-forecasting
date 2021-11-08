@@ -11,12 +11,12 @@ class Config:
             "plot": False
         }
         self.grid_params = {
-            "spatial_res": (50, 33),  # 500mx500m
+            "spatial_res": (100, 66),  # 500mx500m
             "include_side_info": False
         }
 
         self.graph_params = {
-            "event_threshold": 1000,
+            "event_threshold": 200,
             "include_side_info": False,
             "grid_name": "all",
             "min_cell_size": (2, 2),
