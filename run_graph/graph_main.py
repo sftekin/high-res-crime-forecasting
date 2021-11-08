@@ -1,12 +1,10 @@
 import os
 import pickle as pkl
-import multiprocessing
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
 import numpy as np
-import torch
-from torch.distributions.multivariate_normal import MultivariateNormal
-from sklearn.metrics import average_precision_score
 
 from configs.graph_config import GraphConfig
 from data_generators.graph_creator import GraphCreator
@@ -14,7 +12,7 @@ from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
 from trainer import Trainer
 from models.graph_model import GraphModel
-from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date, bin_pred, f1_score
+from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date
 
 
 def run():

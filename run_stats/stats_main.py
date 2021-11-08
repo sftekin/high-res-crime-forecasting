@@ -40,7 +40,7 @@ def run():
     else:
         print(f"Data is found.")
 
-    model_name = "random_forest"
+    model_name = "arima"
     model_params = config.model_params[model_name]
 
     # create save path
