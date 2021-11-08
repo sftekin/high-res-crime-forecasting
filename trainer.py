@@ -123,8 +123,8 @@ class Trainer:
 
                 print("-*-" * 10)
                 message_str = "Early exiting from epoch: {}, \nTrain Loss: {:5f}, Val Loss: {:5f}." \
-                              "Best Val Score {:.5f}"
-                print(message_str.format(best_epoch, tr_loss, vl_loss, best_val_score))
+                              "Best Val Score {:.5f} Best Train Score {:.5f}"
+                print(message_str.format(best_epoch, tr_loss, vl_loss, best_val_score, self.stats["train"][0]))
                 print("-*-" * 10)
 
                 # checkpoint
@@ -147,12 +147,13 @@ class Trainer:
             plt.show()
 
     def transform(self, model, batch_generator):
-        test_loss, _ = self.__step_loop(model=model,
-                                        generator=batch_generator,
-                                        mode='test',
-                                        optimizer=None,
-                                        collect_results=True)
-        print('Test finished, test loss: {:.5f}'.format(test_loss))
+        test_loss = self.__step_loop(model=model,
+                                     generator=batch_generator,
+                                     mode='test',
+                                     optimizer=None,
+                                     collect_results=True)
+
+        print('Test finished, test loss: {:.5f} test score {:.5f}'.format(test_loss, self.stats["test"][0]))
         self.__save_model(model)
         self.__save_outputs()
 
@@ -249,12 +250,12 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
-        plt.figure()
-        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
-        plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
-        plt.xlim(0, 1)
-        plt.ylim(0, 1)
-        plt.show()
+        # plt.figure()
+        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        # plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
+        # plt.xlim(0, 1)
+        # plt.ylim(0, 1)
+        # plt.show()
         total_loss = torch.tensor(0).to("cuda").float()
         counter = 0
         batch_dists = []

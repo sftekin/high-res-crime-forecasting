@@ -31,7 +31,7 @@ class GraphConfig(Config):
             "clip": 10,
             "early_stop_tolerance": 10,
             "loss_function": "likelihood",  # or prob_loss
-            "node_dist_constant": 0.1
+            "node_dist_constant": 0.3
         }
 
         self.model_params = {
