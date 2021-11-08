@@ -2,11 +2,15 @@ import os
 import warnings
 import multiprocessing
 import pickle as pkl
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from models.arima import ARIMA
+from models.svr import SVR
+from models.random_forest import RandomForest
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 from configs.stats_config import StatsConfig
@@ -15,7 +19,9 @@ from helpers.static_helper import calculate_metrics, f1_score, get_save_dir, get
 from sklearn.metrics import average_precision_score
 
 model_dispatcher = {
-    "arima": ARIMA
+    "arima": ARIMA,
+    "svr": SVR,
+    "random_forest": RandomForest
 }
 
 
@@ -34,7 +40,7 @@ def run():
     else:
         print(f"Data is found.")
 
-    model_name = "arima"
+    model_name = "random_forest"
     model_params = config.model_params[model_name]
 
     # create save path
@@ -79,7 +85,8 @@ def run():
                 arg_list.append((model, sets))
 
             with multiprocessing.Pool(processes=num_process) as pool:
-                preds = list(tqdm(pool.imap(fit_transform, arg_list), total=len(arg_list)))
+                func = fit_transform_sklearn if model_name in ["svr", "random_forest"] else fit_transform
+                preds = list(tqdm(pool.imap(func, arg_list), total=len(arg_list)))
                 preds = np.stack(preds, axis=1)
 
             set_sizes = [len(s) for s in [train_ts, val_ts, test_ts]]
@@ -119,6 +126,28 @@ def fit_transform(arg_list):
     all_data = np.concatenate(sets)
     all_pred = model.predict(endog=all_data)
 
+    val_pred = all_pred[len(train_ts):len(train_ts)+len(val_ts)]
+    test_pred = all_pred[len(train_ts)+len(val_ts):]
+    predictions = np.concatenate([train_pred, val_pred, test_pred])
+    return predictions
+
+
+def fit_transform_sklearn(arg_list):
+    model, sets = arg_list
+
+    train_ts, val_ts, test_ts = [s.reshape(-1, 1) for s in sets]
+    train_label = np.concatenate([train_ts[1:], val_ts[[0]]])
+
+    all_data = np.concatenate([train_ts, val_ts, test_ts])
+    rolled = []
+    for i in range(10):
+        rolled.append(np.roll(all_data, i))
+    all_data = np.concatenate(rolled, axis=1)
+
+    model.fit(all_data[:len(train_ts)], train_label)
+    all_pred = model.predict(all_data)
+
+    train_pred = all_pred[:len(train_ts)]
     val_pred = all_pred[len(train_ts):len(train_ts)+len(val_ts)]
     test_pred = all_pred[len(train_ts)+len(val_ts):]
     predictions = np.concatenate([train_pred, val_pred, test_pred])

@@ -31,15 +31,15 @@ class GraphConfig(Config):
             "clip": 10,
             "early_stop_tolerance": 10,
             "loss_function": "likelihood",  # or prob_loss
-            "node_dist_constant": 0.3
+            "node_dist_constant": 0.1
         }
 
         self.model_params = {
             "graph_model": {
                 "input_dim": 10,  # 52 if side info is included else 10
-                "hidden_dims": [50, 10, 50],
-                "num_layers": 3,
-                "filter_sizes": [3, 3, 3],
+                "hidden_dims": [50, 20, 10, 20, 50],
+                "num_layers": 5,
+                "filter_sizes": [5, 3, 3, 3, 5],
                 "bias": True,
                 "normalization": "sym",
             }
