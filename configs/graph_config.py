@@ -37,9 +37,9 @@ class GraphConfig(Config):
         self.model_params = {
             "graph_model": {
                 "input_dim": 10,  # 52 if side info is included else 10
-                "hidden_dims": [50, 20, 10, 20, 50],
-                "num_layers": 5,
-                "filter_sizes": [5, 3, 3, 3, 5],
+                "hidden_dims": [50, 10, 50],
+                "num_layers": 3,
+                "filter_sizes": [5, 3, 5],
                 "bias": True,
                 "normalization": "sym",
             }
