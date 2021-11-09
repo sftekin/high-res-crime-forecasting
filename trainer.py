@@ -72,6 +72,7 @@ class Trainer:
         tolerance = 0
         best_epoch = 0
         best_val_score = 0
+        best_val_loss = 1e9
         best_dict = model.state_dict()
         for epoch in range(self.num_epochs):
             # train and validation loop
@@ -102,9 +103,9 @@ class Trainer:
             train_loss.append(running_train_loss)
             val_loss.append(running_val_loss)
 
-            if running_val_score > best_val_score:
+            if running_val_loss < best_val_loss:
                 best_epoch = epoch + 1
-                best_val_score = running_val_score
+                best_val_loss = best_val_loss
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
@@ -250,12 +251,12 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
-        plt.figure()
-        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
-        plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
-        plt.xlim(0, 1)
-        plt.ylim(0, 1)
-        plt.show()
+        # plt.figure()
+        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        # plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
+        # plt.xlim(0, 1)
+        # plt.ylim(0, 1)
+        # plt.show()
         total_loss = torch.tensor(0).to("cuda").float()
         counter = 0
         batch_dists = []
