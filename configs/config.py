@@ -16,7 +16,7 @@ class Config:
         }
 
         self.graph_params = {
-            "event_threshold": 2000,
+            "event_threshold": 1000,
             "include_side_info": False,
             "grid_name": "all",
             "min_cell_size": (2, 2),

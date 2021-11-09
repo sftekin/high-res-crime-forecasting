@@ -3,8 +3,11 @@ from tqdm import tqdm
 import pickle as pkl
 import multiprocessing
 
+import holidays
 import numpy as np
 import pandas as pd
+from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.offsets import CustomBusinessDay
 
 import itertools
 from data_generators.data_creator import DataCreator
@@ -174,7 +177,15 @@ class GraphCreator(DataCreator):
                     cat_df = cat_df.drop(columns=["Latitude", "Longitude"])
                     node_features[:, n, len(self.crime_types) + 2:] = cat_df.values
 
-        return node_features
+        # create calendar feats
+        calendar_feats = self.__create_calendar_features()
+        node_feats_with_cal = []
+        for n in range(len(nodes)):
+            n_cal = np.concatenate([node_features[:, n], calendar_feats], axis=1)
+            node_feats_with_cal.append(n_cal)
+        node_feats_with_cal = np.stack(node_feats_with_cal, axis=1)
+
+        return node_feats_with_cal
 
     def __create_node_cells(self, regions, coord_grid):
         for i, (r, c) in enumerate(regions):
@@ -214,6 +225,23 @@ class GraphCreator(DataCreator):
                 coord_grid[m - j - 1, i, :] = coords_ordered
 
         return coord_grid
+
+    def __create_calendar_features(self):
+        week_days = np.array(self.date_r.weekday)
+        months = np.array(self.date_r.month)
+        day_of_month = np.array(self.date_r.day)
+
+        years = np.unique(self.date_r.year)
+        special_days = holidays.US(years=years)
+        special_days = np.array((list(map(lambda x: x in special_days, self.date_r))), dtype=int)
+
+        usb = CustomBusinessDay(calendar=USFederalHolidayCalendar())
+        work_days = pd.date_range(self.start_date, self.end_date, freq=usb)
+        work_days = np.array([d in work_days for d in self.date_r]).astype(int)
+        weekends = ((self.date_r.dayofweek // 5) == 1).astype(float)
+
+        calendar_feats = np.stack([week_days, months, day_of_month, special_days, work_days, weekends], axis=1)
+        return calendar_feats
 
     @staticmethod
     def create_edge_index(edges):
