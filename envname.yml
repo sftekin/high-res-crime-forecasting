@@ -106,11 +106,14 @@ dependencies:
     - attrs==21.2.0
     - backcall==0.2.0
     - bleach==4.1.0
+    - convertdate==2.3.2
     - cycler==0.10.0
     - debugpy==1.5.0
     - defusedxml==0.7.1
     - descartes==1.1.0
     - entrypoints==0.3
+    - hijri-converter==2.2.2
+    - holidays==0.11.3.1
     - ipykernel==6.4.1
     - ipython==7.28.0
     - ipython-genutils==0.2.0
@@ -121,6 +124,7 @@ dependencies:
     - jupyter-core==4.8.1
     - jupyterlab-pygments==0.1.2
     - kiwisolver==1.3.2
+    - korean-lunar-calendar==0.2.1
     - matplotlib==3.4.3
     - matplotlib-inline==0.1.3
     - mistune==0.8.4
@@ -132,6 +136,7 @@ dependencies:
     - packaging==21.0
     - pandocfilters==1.5.0
     - parso==0.8.2
+    - patsy==0.5.2
     - pexpect==4.8.0
     - pickleshare==0.7.5
     - prometheus-client==0.11.0
@@ -139,12 +144,14 @@ dependencies:
     - protobuf==3.18.1
     - ptyprocess==0.7.0
     - pygments==2.10.0
+    - pymeeus==0.5.11
     - pyrsistent==0.18.0
     - pyzmq==22.3.0
     - rdflib==6.0.2
     - seaborn==0.11.2
     - send2trash==1.8.0
     - shapely==1.7.1
+    - statsmodels==0.13.0
     - tensorboardx==2.4
     - terminado==0.12.1
     - testpath==0.5.0
