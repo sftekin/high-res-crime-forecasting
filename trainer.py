@@ -105,7 +105,7 @@ class Trainer:
 
             if running_val_loss < best_val_loss:
                 best_epoch = epoch + 1
-                best_val_loss = best_val_loss
+                best_val_loss = running_val_loss
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
@@ -251,12 +251,12 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
-        # plt.figure()
-        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
-        # plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
-        # plt.xlim(0, 1)
-        # plt.ylim(0, 1)
-        # plt.show()
+        plt.figure()
+        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
+        plt.xlim(0, 1)
+        plt.ylim(0, 1)
+        plt.show()
         total_loss = torch.tensor(0).to("cuda").float()
         counter = 0
         batch_dists = []
