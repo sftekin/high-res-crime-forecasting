@@ -4,14 +4,14 @@ class Config:
             "data_raw_path": "chicago_raw.csv",
             "coord_range": [[41.60, 42.05], [-87.9, -87.5]],
             "temporal_res": 24,
-            "time_range": ("2015-01-01", "2016-01-01"),
+            "time_range": ("2015-01-01", "2017-01-01"),
             "crime_categories": ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE',
                                  'NARCOTICS', 'ROBBERY', 'ASSAULT',
                                  'DECEPTIVE PRACTICE', 'BURGLARY'],
             "plot": False
         }
         self.grid_params = {
-            "spatial_res": (100, 66),  # 500mx500m
+            "spatial_res": (50, 33),  # 500mx500m
             "include_side_info": False
         }
 

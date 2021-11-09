@@ -29,7 +29,10 @@ def run():
 
     data_len = config.experiment_params["train_size"] + \
                config.experiment_params["val_size"] + config.experiment_params["test_size"]
-    for i in range(0, int(12 - data_len) + 1):
+    start_date = pd.to_datetime(grid_creator.start_date)
+    end_date = pd.to_datetime(grid_creator.end_date)
+    num_months = int((end_date - start_date) / np.timedelta64(1, 'M'))
+    for i in range(0, int(num_months - data_len) + 1):
         stride_offset = pd.DateOffset(months=i)
         start_date = grid_creator.date_r[0] + stride_offset
         start_date_str = start_date.strftime("%Y-%m-%d")
@@ -92,9 +95,9 @@ def run():
             stats = trainer.stats
             for key, val in stats.items():
                 print(f"{key} F1 Score: {val[0]:.5f}")
-            stats_path = os.path.join(date_dir, "trainer.pkl")
+            stats_path = os.path.join(date_dir, "stats.pkl")
             with open(stats_path, "wb") as f:
-                pkl.dump(trainer, f)
+                pkl.dump(stats, f)
 
 
 if __name__ == '__main__':

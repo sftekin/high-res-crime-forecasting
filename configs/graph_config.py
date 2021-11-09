@@ -5,8 +5,8 @@ class GraphConfig(Config):
     def __init__(self):
         super(GraphConfig, self).__init__()
         self.experiment_params = {
-            "train_size": 6.5,  # months
-            "val_size": 0.5,  # months
+            "train_size": 10,  # months
+            "val_size": 1,  # months
             "test_size": 1,  # months
         }
 
