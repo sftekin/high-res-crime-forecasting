@@ -16,6 +16,7 @@ from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date
 
 
 def run():
+    # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     config = GraphConfig()
     grid_creator = GridCreator(data_params=config.data_params, grid_params=config.grid_params)
 
@@ -58,15 +59,21 @@ def run():
                                          save_dir=f"{start_date_str}_{c}")
             loaded = graph_creator.load()
             if not loaded:
-                graph_creator.create_graph(grid=grid, crime_type=c)
+                graph_creator.create_graph(grid=grid)
 
-            labels = np.array(graph_creator.labels)
+            loss_type = config.trainer_params["loss_function"]
+            if loss_type == "prob_loss":
+                labels = (grid > 0).astype(int)
+            else:
+                labels = graph_creator.create_labels(crime_type=c)
+                labels = np.array(labels)
             generator = BatchGenerator(in_data=graph_creator.node_features,
                                        labels=labels,
                                        set_ids=set_ids,
                                        edge_index=graph_creator.edge_index,
                                        regions=graph_creator.regions,
-                                       batch_gen_params=config.batch_gen_params)
+                                       batch_gen_params=config.batch_gen_params,
+                                       loss_type=loss_type)
 
             model = GraphModel(device=config.trainer_params["device"],
                                node_count=graph_creator.node_features.shape[1],

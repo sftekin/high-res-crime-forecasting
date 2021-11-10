@@ -22,7 +22,7 @@ class GraphConfig(Config):
         }
 
         self.trainer_params = {
-            "device": 'cuda',
+            "device": 'cpu',
             "num_epochs": 100,
             "momentum": 0.7,
             "optimizer": "adam",
@@ -30,16 +30,16 @@ class GraphConfig(Config):
             "learning_rate": 0.002,
             "clip": 10,
             "early_stop_tolerance": 10,
-            "loss_function": "likelihood",  # or prob_loss
-            "node_dist_constant": 0.01
+            "loss_function": "prob_loss",  # likelihood or prob_loss
+            "node_dist_constant": 0.1
         }
 
         self.model_params = {
             "graph_model": {
                 "input_dim": 16,  # 52 if side info is included else 16
-                "hidden_dims": [50, 30, 10, 30, 50],
-                "num_layers": 5,
-                "filter_sizes": [5, 3, 3, 3, 5],
+                "hidden_dims": [50, 10, 50],
+                "num_layers": 3,
+                "filter_sizes": [3, 3, 3],
                 "bias": True,
                 "normalization": "sym",
             }

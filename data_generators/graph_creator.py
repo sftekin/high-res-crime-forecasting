@@ -49,7 +49,7 @@ class GraphCreator(DataCreator):
         self.paths = [edge_index_path, node_features_path, node2cells_path,
                       regions_path, labels_path, edge_weight_path]
 
-    def create_graph(self, grid, crime_type):
+    def create_graph(self, grid):
         crime_df = super().create()
 
         if self.normalize_coords:
@@ -83,8 +83,7 @@ class GraphCreator(DataCreator):
         self.edge_weights = self.create_edge_weights(nodes)
         self.node_features = self.__create_node_features(crime_df, nodes, polygons)
         self.regions = regions
-        self.__create_node_cells(regions, coord_grid)
-        self.labels = self.__create_labels(crime_df[crime_df[crime_type] == 1], nodes)
+        self.__create_node2cells(regions, coord_grid)
 
         if self.plot:
             plot_regions(polygons, coord_range=self.coord_range)
@@ -101,7 +100,10 @@ class GraphCreator(DataCreator):
         self.__save_data()
         print(f"Data Creation finished, data saved under {self.graph_save_dir}")
 
-    def __create_labels(self, crime_df, nodes):
+    def create_labels(self, crime_type):
+        crime_df = super().create()
+        crime_df = crime_df[crime_df[crime_type] == 1]
+        nodes = self.node_features[0, :, :2]
         arg_list = []
         for t in self.date_r:
             arg_list.append((crime_df, t, nodes))
@@ -187,12 +189,11 @@ class GraphCreator(DataCreator):
 
         return node_feats_with_cal
 
-    def __create_node_cells(self, regions, coord_grid):
+    def __create_node2cells(self, regions, coord_grid):
         for i, (r, c) in enumerate(regions):
             region_cells = coord_grid[r[0]:r[1], c[0]:c[1]].reshape(-1, 4, 2)
-            region_cells = np.stack([np.min(region_cells, axis=1),
-                                     np.max(region_cells, axis=1)], axis=-1)
-            self.node2cells[i] = region_cells
+            centers = region_cells.mean(axis=1)
+            self.node2cells[i] = centers
 
     def __save_data(self):
         items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.labels, self.edge_weights]

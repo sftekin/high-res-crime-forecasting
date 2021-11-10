@@ -65,15 +65,15 @@ def inverse_label(pred, label_shape, regions):
 
 def get_probs(pred, node2cell):
     pred_mu, pred_sigma = pred
+    device = pred_mu.device
     batch_prob = []
-    for batch_id in range(pred_mu.shape[0]):
+    for i in range(pred_mu.shape[0]):
         prob = []
-        for node_id, cell_arr in node2cell.items():
-            mu1, mu2 = pred_mu[batch_id, node_id]
-            sigma1, sigma2 = pred_sigma[batch_id, node_id]
-            p1 = _calc_prob(cell_arr[:, 0], mu1, sigma1)
-            p2 = _calc_prob(cell_arr[:, 1], mu2, sigma2)
-            prob.append(p1 * p2)
+        for j in range(pred_mu.shape[1]):
+            mu = pred_mu[i, j]
+            sigma = torch.eye(2).to(device) * pred_sigma[i, j]
+            m = MultivariateNormal(mu.T, sigma)
+            prob.append(torch.exp(m.log_prob(node2cell[j])).clip(0, 1))
         prob = torch.cat(prob)
         batch_prob.append(prob)
     batch_prob = torch.stack(batch_prob)

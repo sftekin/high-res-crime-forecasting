@@ -6,12 +6,13 @@ from normalizers.batch_normalizer import BatchNormalizer
 
 
 class BatchGenerator:
-    def __init__(self, in_data, labels, set_ids, batch_gen_params, regions=None, edge_index=None):
+    def __init__(self, in_data, labels, set_ids, batch_gen_params, regions=None, edge_index=None, loss_type=None):
         self.in_data = in_data
         self.labels = labels
         self.edge_index = edge_index
         self.regions = regions
         self.set_ids = set_ids
+        self.loss_type = loss_type
 
         self.dataset_name = batch_gen_params["dataset_name"]
         self.window_in_len = batch_gen_params["window_in_len"]
@@ -52,7 +53,8 @@ class BatchGenerator:
                                        window_in_len=self.window_in_len,
                                        window_out_len=self.window_out_len,
                                        batch_size=self.batch_size,
-                                       shuffle=self.shuffle)
+                                       shuffle=self.shuffle,
+                                       loss_type=self.loss_type)
             elif self.dataset_name == "grid":
                 dataset = GridDataset(in_data=self.in_data[data_ids],
                                       labels=self.labels[data_ids],

@@ -182,7 +182,7 @@ class Trainer:
                 pred_dict = self.model_step_preds[mode]
                 label_dict = self.model_step_labels[mode]
                 stats = get_graph_stats(pred_dict, label_dict, self.coord_range, self.spatial_res)
-            elif self.loss_function in ["MSE", "BCE"]:
+            else:
                 y_pred = np.concatenate(self.model_step_preds[mode])
                 y_true = np.concatenate(self.model_step_labels[mode])
 
@@ -194,8 +194,6 @@ class Trainer:
                 score = f1_score(y_true=y_true.flatten(), y_pred=pred)
                 print(f"F1 Score: {score}")
                 stats = score, y_pred, y_true
-            else:
-                stats = None
 
             self.stats[mode] = stats
 
@@ -213,7 +211,7 @@ class Trainer:
         else:
             pred = model.forward(x)
 
-        loss = self.__get_loss(pred, y)
+        loss, pred = self.__get_loss(pred, y)
 
         if optimizer is not None:
             loss.backward()
@@ -233,21 +231,31 @@ class Trainer:
 
     def __get_loss(self, pred, y):
         if self.loss_function in self.custom_losses:
-            loss = self.criterion_dict[self.loss_function](pred=pred, y=y)
+            loss, pred = self.criterion_dict[self.loss_function](pred=pred, y=y)
         else:
             loss = self.criterion_dict[self.loss_function](pred, y)
-        return loss
+        return loss, pred
 
     def __prob_loss(self, pred, y):
+        # pred_mu = pred[0]
+        # plt.figure()
+        # plt.scatter(pred[0].detach().cpu().numpy()[0, :, 0], pred[0].detach().cpu().numpy()[0, :, 1])
+        # # plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
+        # plt.xlim(0, 1)
+        # plt.ylim(0, 1)
+        # plt.show()
         criterion = self.criterion_dict["BCE"]
         batch_prob = get_probs(pred, node2cell=self.node2cell)
         loss = criterion(batch_prob, y)
 
-        y_pred = bin_pred(pred=batch_prob.detach().cpu().numpy().flatten(),
-                          label=y.detach().cpu().numpy().flatten())
-        f1 = f1_score(y_true=y.detach().cpu().numpy().flatten().flatten(), y_pred=y_pred)
-        print(f"F1 Score: {f1}")
-        return loss
+        # dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
+        # loss += self.node_dist_constant * dist_nodes
+
+        # y_pred = bin_pred(pred=batch_prob.detach().cpu().numpy().flatten(),
+        #                   label=y.detach().cpu().numpy().flatten())
+        # f1 = f1_score(y_true=y.detach().cpu().numpy().flatten(), y_pred=y_pred)
+        # print(f"F1 Score: {f1}")
+        return loss, batch_prob
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
@@ -280,7 +288,7 @@ class Trainer:
         dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
         total_loss += self.node_dist_constant * dist_nodes
 
-        return total_loss
+        return total_loss, pred
 
     def __prep_input(self, x):
         if isinstance(x, list):
