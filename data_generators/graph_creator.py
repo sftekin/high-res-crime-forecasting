@@ -179,15 +179,15 @@ class GraphCreator(DataCreator):
                     cat_df = cat_df.drop(columns=["Latitude", "Longitude"])
                     node_features[:, n, len(self.crime_types) + 2:] = cat_df.values
 
-        # create calendar feats
-        calendar_feats = self.__create_calendar_features()
-        node_feats_with_cal = []
-        for n in range(len(nodes)):
-            n_cal = np.concatenate([node_features[:, n], calendar_feats], axis=1)
-            node_feats_with_cal.append(n_cal)
-        node_feats_with_cal = np.stack(node_feats_with_cal, axis=1)
+        # # create calendar feats
+        # calendar_feats = self.__create_calendar_features()
+        # node_feats_with_cal = []
+        # for n in range(len(nodes)):
+        #     n_cal = np.concatenate([node_features[:, n], calendar_feats], axis=1)
+        #     node_feats_with_cal.append(n_cal)
+        # node_feats_with_cal = np.stack(node_feats_with_cal, axis=1)
 
-        return node_feats_with_cal
+        return node_features
 
     def __create_node2cells(self, regions, coord_grid):
         for i, (r, c) in enumerate(regions):
