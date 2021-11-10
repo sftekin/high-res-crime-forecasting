@@ -22,7 +22,7 @@ class GraphConfig(Config):
         }
 
         self.trainer_params = {
-            "device": 'cpu',
+            "device": 'cuda',
             "num_epochs": 100,
             "momentum": 0.7,
             "optimizer": "adam",
