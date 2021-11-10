@@ -102,6 +102,14 @@ class GraphCreator(DataCreator):
 
     def create_labels(self, crime_type):
         crime_df = super().create()
+        if self.normalize_coords:
+            coord_arr = crime_df[["Latitude", "Longitude"]].values
+            (min_lat, max_lat), (min_lon, max_lon) = self.coord_range
+            coord_arr[:, 0] = (coord_arr[:, 0] - min_lat) / (max_lat - min_lat)
+            coord_arr[:, 1] = (coord_arr[:, 1] - min_lon) / (max_lon - min_lon)
+            crime_df.loc[:, ["Latitude", "Longitude"]] = coord_arr
+            self.coord_range = [[0, 1], [0, 1]]
+
         crime_df = crime_df[crime_df[crime_type] == 1]
         nodes = self.node_features[0, :, :2]
         arg_list = []

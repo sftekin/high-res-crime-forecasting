@@ -10,7 +10,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.distributions.multivariate_normal import MultivariateNormal
 
-from helpers.graph_helper import get_probs, get_graph_stats
+from helpers.graph_helper import get_probs, get_graph_stats, inverse_label
 from helpers.static_helper import bin_pred, f1_score
 
 
@@ -248,6 +248,11 @@ class Trainer:
         batch_prob = get_probs(pred, node2cell=self.node2cell)
         loss = criterion(batch_prob, y)
 
+        # grid_pred = inverse_label(batch_prob.detach().cpu(), self.spatial_res, self.regions)
+        # plt.figure()
+        # plt.imshow(grid_pred[0])
+        # plt.show()
+
         # dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
         # loss += self.node_dist_constant * dist_nodes
 
@@ -265,14 +270,14 @@ class Trainer:
         # plt.xlim(0, 1)
         # plt.ylim(0, 1)
         # plt.show()
-        total_loss = torch.tensor(0).to("cuda").float()
+        total_loss = torch.tensor(0).to(self.device).float()
         counter = 0
         batch_dists = []
         for i in range(pred_mu.shape[0]):
             dists = []
             for j in range(pred_mu.shape[1]):
                 mu = pred_mu[i, j]
-                sigma = torch.eye(2).to("cuda") * pred_sigma[i, j]
+                sigma = torch.eye(2).to(self.device) * pred_sigma[i, j]
                 m = MultivariateNormal(mu.T, sigma)
                 dists.append(m)
             batch_dists.append(dists)

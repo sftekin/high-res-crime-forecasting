@@ -51,7 +51,7 @@ def run():
         test_ids = np.concatenate([val_ids[-win_in_len:], test_ids])
         set_ids = [train_ids, val_ids, test_ids]
 
-        for c in grid_creator.crime_types:
+        for c in ["all"]:
             print(c)
             grid = grid_creator.load_grid(dataset_name=c)[..., [2]]
             graph_creator = GraphCreator(data_params=config.data_params,

@@ -30,7 +30,7 @@ class GraphModel(nn.Module):
         self.mu = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
                                 nn.Sigmoid())
         self.sigma = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
-                                   nn.Softplus())
+                                   nn.Sigmoid())
 
     def forward(self, in_tensor, edge_index, edge_weight=None):
         # in_tensor has the shape of (B, T, M, D)
