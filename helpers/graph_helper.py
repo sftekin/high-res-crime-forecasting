@@ -121,7 +121,13 @@ def _get_batch_stats(args):
         batch_dists.append(dists)
 
     grid_pred = _sample_dist(batch_dists, coord_range=coord_range, grid_shape=grid_shape)
-    grid_label = _get_grid_label(label, coord_range=coord_range, grid_shape=grid_shape)
+
+    label_list = []
+    for i in range(len(label)):
+        l_arr = np.concatenate(list(label[i].values()))
+        label_list.append(l_arr)
+
+    grid_label = _get_grid_label(label_list, coord_range=coord_range, grid_shape=grid_shape)
     grids = [grid_pred, grid_label]
 
     return grids
@@ -149,8 +155,7 @@ def _get_grid_label(label, coord_range, grid_shape):
             y = label[i].detach().cpu().numpy()
         else:
             y = label[i]
-        grid = _convert_grid(y[:, :2],
-                             coord_range=coord_range, grid_shape=grid_shape)
+        grid = _convert_grid(y[:, :2], coord_range=coord_range, grid_shape=grid_shape)
         grid = (grid > 0).astype(int)
         batch_label.append(grid)
     batch_label = np.stack(batch_label)

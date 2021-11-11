@@ -264,13 +264,13 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
-        print("MAX", pred_mu.max().detach().cpu().numpy(), pred_sigma.max().detach().cpu().numpy())
-        plt.figure()
-        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
-        # plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
-        plt.xlim(0, 1)
-        plt.ylim(0, 1)
-        plt.show()
+        # plt.figure()
+        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        # events = np.concatenate([v.detach().cpu().numpy() for v in y[0].values()])
+        # plt.scatter(events[:, 0], events[:, 1])
+        # plt.xlim(0, 1)
+        # plt.ylim(0, 1)
+        # plt.show()
         total_loss = torch.tensor(0).to(self.device).float()
         counter = 0
         batch_dists = []
@@ -287,7 +287,7 @@ class Trainer:
             for key, val in label_dict.items():
                 log_likes = dists[int(key)].log_prob(val)
                 total_loss += -torch.sum(log_likes)
-                counter += 1
+                counter += len(val)
 
         total_loss /= counter
         dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
@@ -311,7 +311,13 @@ class Trainer:
     def __collect_outputs(self, pred, y, mode):
         def detach_all(x):
             if isinstance(x, list) or isinstance(x, tuple):
-                x = [x[i].detach().cpu().numpy() for i in range(len(x))]
+                if isinstance(x[0], dict):
+                    x_dev = []
+                    for i in range(len(x)):
+                        x_dev.append({key: val.detach().cpu().numpy() for key, val in x[i].items()})
+                    x = x_dev
+                else:
+                    x = [x[i].detach().cpu().numpy() for i in range(len(x))]
             else:
                 x = x.detach().cpu().numpy()
             return x

@@ -1,3 +1,5 @@
+import copy
+
 import torch
 from batch_generators.dataset import Dataset
 from helpers.graph_helper import flatten_labels
@@ -29,9 +31,10 @@ class GraphDataset(Dataset):
 
     @staticmethod
     def __convert_tensor(label_batch):
+        copy_batch = copy.deepcopy(label_batch)
         batch_list = []
-        for i in range(len(label_batch)):
-            for key, val in label_batch[i][0].items():
-                label_batch[i][0][key] = torch.from_numpy(val)
-            batch_list.append(label_batch[i][0])
+        for i in range(len(copy_batch)):
+            for key, val in copy_batch[i][0].items():
+                copy_batch[i][0][key] = torch.from_numpy(val)
+            batch_list.append(copy_batch[i][0])
         return batch_list
