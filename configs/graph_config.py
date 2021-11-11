@@ -27,11 +27,11 @@ class GraphConfig(Config):
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0,
-            "learning_rate": 0.003,
+            "learning_rate": 0.01,
             "clip": 10,
             "early_stop_tolerance": 10,
-            "loss_function": "likelihood",  # likelihood or prob_loss
-            "node_dist_constant": 0.5  # available only in likelihood
+            "loss_function": "prob_loss",  # likelihood or prob_loss
+            "node_dist_constant": 0.  # available only in likelihood
         }
 
         self.model_params = {

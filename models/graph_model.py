@@ -60,7 +60,7 @@ class GraphModel(nn.Module):
         sigma_outputs = []
         for batch_id in range(batch_size):
             mu_outputs.append(self.mu(output[batch_id]))
-            sigma_outputs.append(self.sigma(output[batch_id]))
+            sigma_outputs.append(self.sigma(output[batch_id]) * 0.1)
         mu_outputs = torch.stack(mu_outputs)
         sigma_outputs = torch.stack(sigma_outputs)
 

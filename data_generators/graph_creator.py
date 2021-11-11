@@ -22,7 +22,6 @@ class GraphCreator(DataCreator):
         super(GraphCreator, self).__init__(data_params)
         self.threshold = graph_params["event_threshold"]
         self.include_side_info = graph_params["include_side_info"]
-        self.grid_name = graph_params["grid_name"]
         self.min_cell_size = graph_params["min_cell_size"]
         self.normalize_coords = graph_params["normalize_coords"]
         self.k = graph_params["k_nearest"]
