@@ -31,7 +31,6 @@ class GraphCreator(DataCreator):
         self.edge_index = None
         self.edge_weights = None
         self.regions = None
-        self.labels = None
         self.node2cells = {}
 
         # create the data_dump directory
@@ -44,10 +43,9 @@ class GraphCreator(DataCreator):
         node_features_path = os.path.join(self.graph_save_dir, "node_features.pkl")
         node2cells_path = os.path.join(self.graph_save_dir, "node2cells.pkl")
         regions_path = os.path.join(self.graph_save_dir, "regions.pkl")
-        labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
         edge_weight_path = os.path.join(self.graph_save_dir, "edge_weight.pkl")
         self.paths = [edge_index_path, node_features_path, node2cells_path,
-                      regions_path, labels_path, edge_weight_path]
+                      regions_path, edge_weight_path]
 
     def create_graph(self, grid):
         crime_df = super().create()
@@ -101,25 +99,44 @@ class GraphCreator(DataCreator):
         print(f"Data Creation finished, data saved under {self.graph_save_dir}")
 
     def create_labels(self, crime_type):
-        crime_df = super().create()
-        if self.normalize_coords:
-            coord_arr = crime_df[["Latitude", "Longitude"]].values
-            (min_lat, max_lat), (min_lon, max_lon) = self.coord_range
-            coord_arr[:, 0] = (coord_arr[:, 0] - min_lat) / (max_lat - min_lat)
-            coord_arr[:, 1] = (coord_arr[:, 1] - min_lon) / (max_lon - min_lon)
-            crime_df.loc[:, ["Latitude", "Longitude"]] = coord_arr
-            self.coord_range = [[0, 1], [0, 1]]
+        labels_path = os.path.join(self.graph_save_dir, "labels.pkl")
+        if os.path.exists(labels_path):
+            with open(labels_path, "rb") as f:
+                label_dicts = pkl.load(f)
+        else:
+            crime_df = super().create()
+            if self.normalize_coords:
+                coord_arr = crime_df[["Latitude", "Longitude"]].values
+                (min_lat, max_lat), (min_lon, max_lon) = self.coord_range
+                coord_arr[:, 0] = (coord_arr[:, 0] - min_lat) / (max_lat - min_lat)
+                coord_arr[:, 1] = (coord_arr[:, 1] - min_lon) / (max_lon - min_lon)
+                crime_df.loc[:, ["Latitude", "Longitude"]] = coord_arr
+                self.coord_range = [[0, 1], [0, 1]]
 
-        crime_df = crime_df[crime_df[crime_type] == 1]
-        nodes = self.node_features[0, :, :2]
-        arg_list = []
-        for t in self.date_r:
-            arg_list.append((crime_df, t, nodes))
+            if crime_type != "all":
+                crime_df = crime_df[crime_df[crime_type] == 1]
+            nodes = self.node_features[0, :, :2]
+            arg_list = []
+            for t in self.date_r:
+                arg_list.append((crime_df, t, nodes))
 
-        with multiprocessing.Pool(processes=self.num_process) as pool:
-            labels = list(tqdm(pool.imap(self.match_event_node, arg_list), total=len(arg_list)))
+            with multiprocessing.Pool(processes=self.num_process) as pool:
+                labels = list(tqdm(pool.imap(self.match_event_node, arg_list), total=len(arg_list)))
 
-        return labels
+            label_dicts = []
+            for t in range(len(labels)):
+                label_dict = {}
+                nodes = np.unique(labels[t][:, 2:])
+                events = labels[t][:, :2]
+                for n in nodes:
+                    idx = np.any(labels[t][:, 2:] == n, axis=1)
+                    label_dict[n] = events[idx]
+                label_dicts.append(label_dict)
+
+            with open(labels_path, "wb") as f:
+                pkl.dump(label_dicts, f)
+
+        return label_dicts
 
     def match_event_node(self, args):
         crime_df, t, nodes = args
@@ -147,8 +164,6 @@ class GraphCreator(DataCreator):
             with open(self.paths[3], "rb") as f:
                 self.regions = pkl.load(f)
             with open(self.paths[4], "rb") as f:
-                self.labels = pkl.load(f)
-            with open(self.paths[5], "rb") as f:
                 self.edge_weights = pkl.load(f)
             loaded = True
         return loaded
@@ -187,15 +202,15 @@ class GraphCreator(DataCreator):
                     cat_df = cat_df.drop(columns=["Latitude", "Longitude"])
                     node_features[:, n, len(self.crime_types) + 2:] = cat_df.values
 
-        # # create calendar feats
-        # calendar_feats = self.__create_calendar_features()
-        # node_feats_with_cal = []
-        # for n in range(len(nodes)):
-        #     n_cal = np.concatenate([node_features[:, n], calendar_feats], axis=1)
-        #     node_feats_with_cal.append(n_cal)
-        # node_feats_with_cal = np.stack(node_feats_with_cal, axis=1)
+        # create calendar feats
+        calendar_feats = self.__create_calendar_features()
+        node_feats_with_cal = []
+        for n in range(len(nodes)):
+            n_cal = np.concatenate([node_features[:, n], calendar_feats], axis=1)
+            node_feats_with_cal.append(n_cal)
+        node_feats_with_cal = np.stack(node_feats_with_cal, axis=1)
 
-        return node_features
+        return node_feats_with_cal
 
     def __create_node2cells(self, regions, coord_grid):
         for i, (r, c) in enumerate(regions):
@@ -204,7 +219,7 @@ class GraphCreator(DataCreator):
             self.node2cells[i] = centers
 
     def __save_data(self):
-        items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.labels, self.edge_weights]
+        items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.edge_weights]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)

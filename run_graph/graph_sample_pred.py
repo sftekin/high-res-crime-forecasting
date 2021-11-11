@@ -32,6 +32,7 @@ def run():
     events = graph_creator.labels > 0
     events = events.astype(int)
     f_labels = flatten_labels(labels=events, regions=graph_creator.regions)
+
     x = torch.from_numpy(graph_creator.node_features[time_step:time_step+win_in_len]).unsqueeze(0).float()
     y = torch.from_numpy(f_labels[time_step+win_in_len]).unsqueeze(0).float()
     edge_index = torch.from_numpy(graph_creator.edge_index)

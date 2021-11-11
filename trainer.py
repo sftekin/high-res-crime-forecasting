@@ -264,12 +264,13 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
-        # plt.figure()
-        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        print("MAX", pred_mu.max().detach().cpu().numpy(), pred_sigma.max().detach().cpu().numpy())
+        plt.figure()
+        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
         # plt.scatter(y[0].detach().cpu().numpy()[:, 0], y[0].detach().cpu().numpy()[:, 1])
-        # plt.xlim(0, 1)
-        # plt.ylim(0, 1)
-        # plt.show()
+        plt.xlim(0, 1)
+        plt.ylim(0, 1)
+        plt.show()
         total_loss = torch.tensor(0).to(self.device).float()
         counter = 0
         batch_dists = []
@@ -282,12 +283,11 @@ class Trainer:
                 dists.append(m)
             batch_dists.append(dists)
 
-            for k in range(len(y[i])):
-                nodes = y[i][k, 2:2 + self.k_nearest]  # get the nearby nodes
-                for n in nodes:
-                    log_likes = dists[int(n)].log_prob(y[i][k, :2])  # update them
-                    total_loss += -torch.sum(log_likes)
-                    counter += 1
+            label_dict = y[i]
+            for key, val in label_dict.items():
+                log_likes = dists[int(key)].log_prob(val)
+                total_loss += -torch.sum(log_likes)
+                counter += 1
 
         total_loss /= counter
         dist_nodes = torch.sqrt(torch.sum((pred_mu - self.nodes) ** 2))
@@ -297,7 +297,13 @@ class Trainer:
 
     def __prep_input(self, x):
         if isinstance(x, list):
-            x = [x[i].float().to(self.device) for i in range(len(x))]
+            if isinstance(x[0], dict):
+                x_dev = []
+                for i in range(len(x)):
+                    x_dev.append({key: val.float().to(self.device) for key, val in x[i].items()})
+                x = x_dev
+            else:
+                x = [x[i].float().to(self.device) for i in range(len(x))]
         else:
             x = x.float().to(self.device)
         return x

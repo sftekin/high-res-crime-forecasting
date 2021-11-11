@@ -21,7 +21,7 @@ class Config:
             "grid_name": "all",
             "min_cell_size": (2, 2),
             "normalize_coords": True,
-            "k_nearest": 10
+            "k_nearest": 5
         }
 
         self.batch_gen_params = {}

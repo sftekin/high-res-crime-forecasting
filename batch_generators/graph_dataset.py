@@ -31,5 +31,7 @@ class GraphDataset(Dataset):
     def __convert_tensor(label_batch):
         batch_list = []
         for i in range(len(label_batch)):
-            batch_list.append(torch.from_numpy(label_batch[i][0]))
+            for key, val in label_batch[i][0].items():
+                label_batch[i][0][key] = torch.from_numpy(val)
+            batch_list.append(label_batch[i][0])
         return batch_list
