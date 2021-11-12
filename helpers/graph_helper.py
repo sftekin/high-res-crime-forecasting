@@ -63,7 +63,7 @@ def inverse_label(pred, label_shape, regions):
     return grid
 
 
-def get_probs(pred, node2cell):
+def get_log_like(pred, node2cell):
     pred_mu, pred_sigma = pred
     device = pred_mu.device
     batch_prob = []
@@ -73,7 +73,7 @@ def get_probs(pred, node2cell):
             mu = pred_mu[i, j]
             sigma = torch.eye(2).to(device) * pred_sigma[i, j]
             m = MultivariateNormal(mu.T, sigma)
-            prob.append(torch.exp(m.log_prob(node2cell[j])).clip(0, 1))
+            prob.append(m.log_prob(node2cell[j]))
         prob = torch.cat(prob)
         batch_prob.append(prob)
     batch_prob = torch.stack(batch_prob)

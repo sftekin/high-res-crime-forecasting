@@ -40,7 +40,7 @@ def run():
     else:
         print(f"Data is found.")
 
-    model_name = "arima"
+    model_name = "random_forest"
     model_params = config.model_params[model_name]
 
     # create save path
@@ -68,7 +68,7 @@ def run():
 
         results_list = []
         scores_list = []
-        for crime in grid_creator.crime_types:
+        for crime in ["all"]:
             grid = grid_creator.load_grid(dataset_name=crime)
 
             time_len, height, width, feat_count = grid.shape

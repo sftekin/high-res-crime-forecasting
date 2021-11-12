@@ -8,7 +8,7 @@ class Config:
             "crime_categories": ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE',
                                  'NARCOTICS', 'ROBBERY', 'ASSAULT',
                                  'DECEPTIVE PRACTICE', 'BURGLARY'],
-            "plot": False
+            "plot": True
         }
         self.grid_params = {
             "spatial_res": (50, 33),  # 500mx500m
@@ -16,7 +16,7 @@ class Config:
         }
 
         self.graph_params = {
-            "event_threshold": 500,
+            "event_threshold": 1000,
             "include_side_info": False,
             "min_cell_size": (2, 2),
             "normalize_coords": True,

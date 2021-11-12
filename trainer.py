@@ -10,7 +10,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.distributions.multivariate_normal import MultivariateNormal
 
-from helpers.graph_helper import get_probs, get_graph_stats, inverse_label
+from helpers.graph_helper import get_log_like, get_graph_stats, inverse_label
 from helpers.static_helper import bin_pred, f1_score
 
 
@@ -47,6 +47,7 @@ class Trainer:
         self.criterion_dict = {
             "MSE": nn.MSELoss(),
             "BCE": nn.BCELoss(),
+            "BCElogit": nn.BCEWithLogitsLoss(),
             "likelihood": self.__likelihood_loss,
             "prob_loss": self.__prob_loss
         }
@@ -244,11 +245,12 @@ class Trainer:
         # plt.xlim(0, 1)
         # plt.ylim(0, 1)
         # plt.show()
-        criterion = self.criterion_dict["BCE"]
-        batch_prob = get_probs(pred, node2cell=self.node2cell)
-        loss = criterion(batch_prob, y)
+        batch_prob = get_log_like(pred, node2cell=self.node2cell)
+        p1 = y * batch_prob
+        p2 = (1 - y) * torch.log((1 - batch_prob.exp()).clip(min=1e-5))
+        loss = - (p1 + p2).mean()
 
-        # grid_pred = inverse_label(batch_prob.detach().cpu(), self.spatial_res, self.regions)
+        # grid_pred = inverse_label(batch_prob.exp().detach().cpu(), self.spatial_res, self.regions)
         # plt.figure()
         # plt.imshow(grid_pred[0])
         # plt.show()
@@ -260,7 +262,7 @@ class Trainer:
         #                   label=y.detach().cpu().numpy().flatten())
         # f1 = f1_score(y_true=y.detach().cpu().numpy().flatten(), y_pred=y_pred)
         # print(f"F1 Score: {f1}")
-        return loss, batch_prob
+        return loss, batch_prob.exp()
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred

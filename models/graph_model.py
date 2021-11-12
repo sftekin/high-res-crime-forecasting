@@ -27,9 +27,11 @@ class GraphModel(nn.Module):
                                             normalization=normalization)]
         self.memory_unit = nn.ModuleList(conv_list)
 
-        self.mu = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
+        self.mu = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=64, bias=True),
+                                nn.Linear(in_features=64, out_features=2, bias=True),
                                 nn.Sigmoid())
-        self.sigma = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=2, bias=True),
+        self.sigma = nn.Sequential(nn.Linear(in_features=hidden_dims[-1], out_features=64, bias=True),
+                                   nn.Linear(in_features=64, out_features=2, bias=True),
                                    nn.Sigmoid())
 
     def forward(self, in_tensor, edge_index, edge_weight=None):
@@ -60,7 +62,7 @@ class GraphModel(nn.Module):
         sigma_outputs = []
         for batch_id in range(batch_size):
             mu_outputs.append(self.mu(output[batch_id]))
-            sigma_outputs.append(self.sigma(output[batch_id]) * 0.1)
+            sigma_outputs.append(self.sigma(output[batch_id]) * 0.5)
         mu_outputs = torch.stack(mu_outputs)
         sigma_outputs = torch.stack(sigma_outputs)
 

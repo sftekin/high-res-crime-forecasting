@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from data_generators.graph_creator import GraphCreator
 from configs.graph_config import GraphConfig
-from helpers.graph_helper import get_probs, inverse_label, flatten_labels
+from helpers.graph_helper import get_log_like, inverse_label, flatten_labels
 from helpers.plot_helper import _plot_2d
 
 
@@ -43,7 +43,7 @@ def run():
 
     model.to("cpu")
     pred = model(x, edge_index)
-    batch_prob = get_probs(pred, node2cell)
+    batch_prob = get_log_like(pred, node2cell)
     grid_pred = inverse_label(pred=batch_prob,
                               label_shape=config.grid_params["spatial_res"],
                               regions=graph_creator.regions)
