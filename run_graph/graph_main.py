@@ -1,6 +1,7 @@
 import os
 import pickle as pkl
 import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
@@ -11,8 +12,14 @@ from data_generators.graph_creator import GraphCreator
 from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
 from trainer import Trainer
-from models.graph_model import GraphModel
+from models.graph_conv_gru import GraphConvGRU
+from models.lstm import LSTM
 from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date
+
+model_dispatcher = {
+    "graph_model": GraphConvGRU,
+    "lstm": LSTM
+}
 
 
 def run():
@@ -25,7 +32,7 @@ def run():
         grid_creator.create_grid()
 
     # create save path
-    model_name = "graph_model"
+    model_name = "lstm"
     save_dir = get_save_dir(model_name=model_name)
 
     data_len = config.experiment_params["train_size"] + \
@@ -75,9 +82,9 @@ def run():
                                        batch_gen_params=config.batch_gen_params,
                                        loss_type=loss_type)
 
-            model = GraphModel(device=config.trainer_params["device"],
-                               node_count=graph_creator.node_features.shape[1],
-                               **config.model_params["graph_model"])
+            model = model_dispatcher[model_name](device=config.trainer_params["device"],
+                                                 node_count=graph_creator.node_features.shape[1],
+                                                 **config.model_params[model_name])
 
             date_dir = os.path.join(save_dir, start_date_str, c)
             if not os.path.exists(date_dir):

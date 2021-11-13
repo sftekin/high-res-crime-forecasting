@@ -208,7 +208,7 @@ class Trainer:
         if dataset_name == "graph":
             edge_index = inputs[2].to(self.device)
             edge_weight = torch.from_numpy(self.edge_weights).float().to(self.device)
-            pred = model.forward(x, edge_index, edge_weight)
+            pred = model.forward(x, edge_index=edge_index, edge_weight=edge_weight)
         else:
             pred = model.forward(x)
 

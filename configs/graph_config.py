@@ -42,5 +42,11 @@ class GraphConfig(Config):
                 "filter_sizes": [3, 3, 3],
                 "bias": True,
                 "normalization": "sym",
+            },
+            "lstm": {
+                "input_dim": 16,
+                "hidden_dim": 100,  # number of nodes also
+                "num_layers": 3,
+                "drop_out": 0.1
             }
         }

@@ -5,9 +5,9 @@ import torch_geometric_temporal.nn as pyg_t_nn
 import torch.nn.functional as F
 
 
-class GraphModel(nn.Module):
+class GraphConvGRU(nn.Module):
     def __init__(self, input_dim, hidden_dims, num_layers, filter_sizes, bias, node_count, normalization, device):
-        super(GraphModel, self).__init__()
+        super(GraphConvGRU, self).__init__()
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
         self.num_layers = num_layers
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     in_tensor = np.stack(in_tensor)
 
     node_count = node_features.shape[1]
-    model = GraphModel(input_dim=3,
+    model = GraphConvGRU(input_dim=3,
                        hidden_dims=[30, 20, 10],
                        num_layers=3,
                        filter_sizes=[3, 3, 3],
