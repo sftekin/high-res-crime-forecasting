@@ -8,7 +8,7 @@ import matplotlib.collections
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 
-from helpers.static_helper import bin_pred, f1_score
+from helpers.static_helper import bin_pred, f1_score, confusion_matrix
 
 
 def plot_poly(in_poly, ax, face_color="b", edge_color="k", alpha=0.5):
@@ -102,6 +102,8 @@ def get_graph_stats(pred_batches, label_batches, coord_range, grid_shape, num_pr
 
     pred = bin_pred(grid_pred.flatten(), grid_label.flatten())
     f1 = f1_score(grid_label.flatten(), pred)
+
+    tn, fn, fp, tp = confusion_matrix(y_true=grid_label.flatten(), y_pred=pred).flatten()
 
     return f1, grid_pred, grid_label
 

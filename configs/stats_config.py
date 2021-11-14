@@ -5,9 +5,9 @@ class StatsConfig(Config):
     def __init__(self):
         super(StatsConfig, self).__init__()
         self.experiment_params = {
-            "train_size": 18,  # months
-            "val_size": 3,  # months
-            "test_size": 3,  # months
+            "train_size": 10,  # months
+            "val_size": 1,  # months
+            "test_size": 1,  # months
         }
 
         self.model_params = {

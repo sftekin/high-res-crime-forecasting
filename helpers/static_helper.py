@@ -3,7 +3,7 @@ import glob
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score, f1_score, confusion_matrix, roc_curve
+from sklearn.metrics import average_precision_score, f1_score, confusion_matrix, roc_curve, accuracy_score
 
 
 def get_save_dir(model_name):

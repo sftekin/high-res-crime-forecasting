@@ -5,9 +5,9 @@ class GraphConfig(Config):
     def __init__(self):
         super(GraphConfig, self).__init__()
         self.experiment_params = {
-            "train_size": 18,  # months
-            "val_size": 3,  # months
-            "test_size": 3,  # months
+            "train_size": 10,  # months
+            "val_size": 1,  # months
+            "test_size": 1,  # months
         }
 
         self.batch_gen_params = {
@@ -35,7 +35,7 @@ class GraphConfig(Config):
         }
 
         self.model_params = {
-            "graph_model": {
+            "graph_conv_gru": {
                 "input_dim": 16,  # 52 if side info is included else 16
                 "hidden_dims": [50, 20, 10],
                 "num_layers": 3,

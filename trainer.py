@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from torch.distributions.multivariate_normal import MultivariateNormal
 
 from helpers.graph_helper import get_log_like, get_graph_stats, inverse_label
-from helpers.static_helper import bin_pred, f1_score
+from helpers.static_helper import bin_pred, f1_score, confusion_matrix, accuracy_score
 
 
 class Trainer:
@@ -194,6 +194,10 @@ class Trainer:
                 pred = bin_pred(pred=y_pred.flatten(), label=y_true.flatten())
                 score = f1_score(y_true=y_true.flatten(), y_pred=pred)
                 print(f"F1 Score: {score}")
+                tn, fn, fp, tp = confusion_matrix(y_true=y_true.flatten(), y_pred=pred).flatten()
+                print(f"Confusion Matrix = TN:{tn}, FN:{fn}, FP:{fp}, TP:{tp}")
+                acc = accuracy_score(y_true=y_true.flatten(), y_pred=pred)
+                print(f"Accuracy = {acc:.4f}")
                 stats = score, y_pred, y_true
 
             self.stats[mode] = stats
