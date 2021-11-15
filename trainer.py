@@ -107,7 +107,6 @@ class Trainer:
             if running_val_loss < best_val_loss:
                 best_epoch = epoch + 1
                 best_val_loss = running_val_loss
-                best_val_score = running_val_score
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
@@ -124,6 +123,7 @@ class Trainer:
                                                          collect_results=True) for mode in
                                         ["train", "val"]]
 
+                best_val_score = self.stats["val"][0]
                 print("-*-" * 10)
                 message_str = "Early exiting from epoch: {}, \nTrain Loss: {:5f}, Val Loss: {:5f}." \
                               "Best Val Score {:.5f} Best Train Score {:.5f}"

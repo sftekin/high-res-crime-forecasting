@@ -54,7 +54,7 @@ def run():
     end_date = pd.to_datetime(grid_creator.end_date)
     num_months = int((end_date - start_date) / np.timedelta64(1, 'M'))
     for i in range(0, int(num_months - data_len) + 1):
-        stride_offset = pd.DateOffset(months=i)
+        stride_offset = pd.DateOffset(years=i)
         start_date = grid_creator.date_r[0] + stride_offset
         start_date_str = start_date.strftime("%Y-%m-%d")
 
