@@ -107,6 +107,7 @@ class Trainer:
             if running_val_loss < best_val_loss:
                 best_epoch = epoch + 1
                 best_val_loss = running_val_loss
+                best_val_score = running_val_score
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0
             else:
