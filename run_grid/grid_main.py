@@ -57,7 +57,7 @@ def run():
         set_ids = [train_ids, val_ids, test_ids]
 
         # grid_crimes = [grid_creator.load_grid(c)[..., [2]] for c in grid_creator.crime_types]
-        grid = grid_creator.load_grid(dataset_name="THEFT")
+        grid = grid_creator.load_grid(dataset_name="all")
 
         if config.trainer_params["loss_function"] == "BCE":
             labels = (grid[..., [2]] > 0).astype(int)

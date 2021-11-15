@@ -22,7 +22,7 @@ class Dataset:
         total_frame = len(self.in_data)
         all_data, batch_node, batch_label = [], [], []
         j = 0
-        for i in range(total_frame-self.total_win_len):
+        for i in range(total_frame-self.total_win_len + 1):
             if j < self.batch_size:
                 batch_node.append(self.in_data[i:i+self.window_in_len])
                 batch_label.append(self.labels[i+self.window_in_len:i+self.total_win_len])

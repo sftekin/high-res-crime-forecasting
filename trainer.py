@@ -32,7 +32,7 @@ class Trainer:
         self.plot_lr = plot_lr
         self.custom_losses = ["prob_loss", "likelihood"]
         self.regions = regions
-        self.nodes = torch.from_numpy(nodes).to(self.device).float()
+        self.nodes = torch.from_numpy(nodes).to(self.device).float() if nodes is not None else None
         self.coord_range = coord_range
         self.spatial_res = spatial_res
         self.node_dist_constant = node_dist_constant

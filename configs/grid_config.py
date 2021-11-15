@@ -29,7 +29,7 @@ class GridConfig(Config):
             "weight_decay": 0,
             "learning_rate": 0.001,
             "clip": 5,
-            "early_stop_tolerance": 10,
+            "early_stop_tolerance": 5,
             "loss_function": "MSE"
         }
 

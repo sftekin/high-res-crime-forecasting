@@ -52,6 +52,6 @@ def get_set_end_date(set_size, start_date):
 
 
 def get_set_ids(date_r, start_date, end_date):
-    ids = np.argwhere((date_r > start_date) & (date_r < end_date)).squeeze()
+    ids = np.argwhere((date_r >= start_date) & (date_r < end_date)).squeeze()
     return ids
 
