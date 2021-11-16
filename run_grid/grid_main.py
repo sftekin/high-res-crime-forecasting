@@ -9,12 +9,14 @@ from data_generators.grid_creator import GridCreator
 from batch_generators.batch_generator import BatchGenerator
 from models.convlstm import ConvLSTM
 from models.convlstm_one_block import ConvLSTMOneBlock
+from models.fc_lstm import FCLSTM
 from trainer import Trainer
 from helpers.static_helper import get_save_dir, get_set_ids, get_set_end_date, calculate_metrics
 
 model_dispatcher = {
     "convlstm": ConvLSTM,
-    "convlstm_one_block": ConvLSTMOneBlock
+    "convlstm_one_block": ConvLSTMOneBlock,
+    "fc_lstm": FCLSTM
 }
 
 
@@ -30,7 +32,7 @@ def run():
         print(f"Data is found.")
 
     # create save path
-    model_name = "convlstm"
+    model_name = "fc_lstm"
     save_dir = get_save_dir(model_name=model_name)
 
     data_len = config.experiment_params["train_size"] + \
@@ -39,7 +41,7 @@ def run():
     end_date = pd.to_datetime(grid_creator.end_date)
     num_months = int((end_date - start_date) / np.timedelta64(1, 'M'))
     for i in range(0, int(num_months - data_len) + 1):
-        stride_offset = pd.DateOffset(months=i)
+        stride_offset = pd.DateOffset(years=i)
         start_date = grid_creator.date_r[0] + stride_offset
         start_date_str = start_date.strftime("%Y-%m-%d")
 
@@ -83,26 +85,13 @@ def run():
         # perform prediction
         trainer.transform(model=model, batch_generator=generator)
 
-        pred_dict = trainer.model_step_preds
-        label_dict = trainer.model_step_labels
-        scores = get_scores(pred_dict, label_dict)
-        scores_path = os.path.join(date_dir, "scores.pkl")
-        with open(scores_path, "wb") as f:
-            pkl.dump(scores, f)
-        print(scores)
-
-        break
-
-
-def get_scores(pred_dict, label_dict):
-    pred_dict = {key: np.concatenate(val) for key, val in pred_dict.items()}
-    label_dict = {key: np.concatenate(val) for key, val in label_dict.items()}
-
-    scores = {}
-    for key in pred_dict.keys():
-        scores[key] = calculate_metrics(pred=pred_dict[key], label=label_dict[key])
-
-    return scores
+        print(f"Experiment finished for all")
+        stats = trainer.stats
+        for key, val in stats.items():
+            print(f"{key} F1 Score: {val[0]:.5f}")
+        stats_path = os.path.join(date_dir, "stats.pkl")
+        with open(stats_path, "wb") as f:
+            pkl.dump(stats, f)
 
 
 if __name__ == '__main__':

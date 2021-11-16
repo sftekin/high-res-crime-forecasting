@@ -23,7 +23,7 @@ class GridConfig(Config):
 
         self.trainer_params = {
             "device": 'cuda',
-            "num_epochs": 200,
+            "num_epochs": 50,
             "momentum": 0.7,
             "optimizer": "adam",
             "weight_decay": 0,
@@ -63,5 +63,11 @@ class GridConfig(Config):
                 "window_out": 1,
                 "num_layers": 3,
                 "bias": True
+            },
+            "fc_lstm": {
+                "input_dim": 50 * 33,
+                "hidden_dim": 50 * 33,  # number of nodes also
+                "num_layers": 3,
+                "drop_out": 0.1
             }
         }

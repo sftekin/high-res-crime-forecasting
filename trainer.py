@@ -100,7 +100,7 @@ class Trainer:
             print(message_str.format(epoch + 1, running_train_loss, running_val_loss, running_val_score, epoch_time))
 
             # checkpoint
-            self.__save_model(model)
+            # self.__save_model(model)
             train_loss.append(running_train_loss)
             val_loss.append(running_val_loss)
 
@@ -131,7 +131,7 @@ class Trainer:
                 print("-*-" * 10)
 
                 # checkpoint
-                self.__save_model(model)
+                # self.__save_model(model)
                 self.__save_outputs()
                 break
 
