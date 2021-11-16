@@ -9,10 +9,13 @@ class DataCreator:
     temp_dir = "temp"
 
     def __init__(self, data_params):
-        self.__data_path = os.path.join(self.dataset_dir, data_params["data_raw_path"])
+        self.simulation_mode = data_params["simulation_mode"]
+        self.sim_data_path = os.path.join(self.dataset_dir, data_params["sim_data_path"])
+        self.simulation_categories = data_params["simulation_categories"]
+
+        self.data_path = os.path.join(self.dataset_dir, data_params["data_raw_path"])
         self.plot = data_params["plot"]
         self.crime_types = data_params["crime_categories"]  # is the feature count of grid
-
         # spatial settings
         self.coord_range = data_params["coord_range"]  # [[41.60, 42.05], [-87.9, -87.5]]  # Lat-Lon
 
@@ -25,11 +28,19 @@ class DataCreator:
         self.data_columns = None
         self.num_process = 16
 
+        if self.simulation_mode:
+            self.crime_types = self.simulation_categories
+            self.coord_range = [[0, 1], [0, 1]]
+
     def create(self):
-        crime_df = pd.read_csv(self.__data_path)
-        crime_df = self._preprocess(crime_df)
-        crime_df = self._crop_spatial(crime_df)
-        crime_df = self._perform_dummies(crime_df)
+        if self.simulation_mode:
+            crime_df = pd.read_csv(self.sim_data_path, index_col=0)
+            crime_df.index = pd.to_datetime(crime_df.index)
+        else:
+            crime_df = pd.read_csv(self.data_path)
+            crime_df = self._preprocess(crime_df)
+            crime_df = self._crop_spatial(crime_df)
+            crime_df = self._perform_dummies(crime_df)
 
         return crime_df
 

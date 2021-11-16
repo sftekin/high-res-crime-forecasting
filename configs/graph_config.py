@@ -36,7 +36,7 @@ class GraphConfig(Config):
 
         self.model_params = {
             "graph_conv_gru": {
-                "input_dim": 16,  # 52 if side info is included else 16
+                "input_dim": 6,  # 44 side info features, 8 crime features, 6 calendar features
                 "hidden_dims": [50, 20, 10],
                 "num_layers": 3,
                 "filter_sizes": [3, 3, 3],

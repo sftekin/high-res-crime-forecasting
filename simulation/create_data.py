@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
+from helpers.graph_helper import _convert_grid
 
 
 def run():
@@ -73,15 +74,19 @@ def run():
             group_events[g].append(np.concatenate(events[g]))
 
     # create simulation csv
+    day = pd.to_datetime("2015-01-01")
     dfs = []
     for t in range(total_time_step):
+        day += pd.DateOffset(hours=24)
         for key, val in group_events.items():
             data = val[t]
-            index = (np.ones(len(data)) * t).astype(int)
-            df_t = pd.DataFrame(data, columns=["Latitude", "Longitude"], index=index)
+            idx = np.repeat(day, len(data))
+            df_t = pd.DataFrame(data, columns=["Latitude", "Longitude"], index=idx)
             df_t["group"] = key
             dfs.append(df_t)
     all_df = pd.concat(dfs, axis=0)
+    groups = pd.get_dummies(all_df["group"], prefix="group")
+    all_df = pd.concat([all_df.drop(columns="group"), groups], axis=1)
     all_df.to_csv(save_path)
     print("data created")
 
@@ -98,13 +103,16 @@ def create_ar_series(total_len):
     series = []
     w = np.array([-0.01])
     y_t_1 = 0
-    c = 200
+    c = 50
     for i in range(total_len):
         e_t = np.random.normal(scale=10)
-        y_t = c + e_t + (w[0] * y_t_1)
+        y_t = np.abs(c + e_t + (w[0] * y_t_1))
         y_t_1 = y_t
         series.append(y_t)
     series = np.array(series)
+    plt.figure()
+    plt.plot(series)
+    plt.show()
     return series
 
 

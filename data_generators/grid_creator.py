@@ -25,7 +25,7 @@ class GridCreator(DataCreator):
 
     def create_grid(self):
         crime_df = super().create()
-        crime_types = self.data_columns
+        crime_types = self.crime_types
 
         return_ds = None
         for crime_name in crime_types:

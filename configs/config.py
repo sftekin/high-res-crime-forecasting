@@ -1,6 +1,8 @@
 class Config:
     def __init__(self):
         self.data_params = {
+            "simulation_mode": True,
+            "sim_data_path": "simulation.csv",
             "data_raw_path": "chicago_raw.csv",
             "coord_range": [[41.60, 42.05], [-87.9, -87.5]],
             "temporal_res": 24,
@@ -8,10 +10,11 @@ class Config:
             "crime_categories": ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE',
                                  'NARCOTICS', 'ROBBERY', 'ASSAULT',
                                  'DECEPTIVE PRACTICE', 'BURGLARY'],
-            "plot": False
+            "simulation_categories": ["group_0", "group_1", "group_2", "group_3"],
+            "plot": True
         }
         self.grid_params = {
-            "spatial_res": (50, 33),  # 500mx500m
+            "spatial_res": (50, 33),  # 1kmx1km
             "include_side_info": False
         }
 
@@ -20,7 +23,8 @@ class Config:
             "include_side_info": False,
             "min_cell_size": (2, 2),
             "normalize_coords": True,
-            "k_nearest": 5
+            "k_nearest": 5,
+            "use_calendar": False
         }
 
         self.batch_gen_params = {}
