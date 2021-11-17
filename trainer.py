@@ -104,8 +104,9 @@ class Trainer:
             train_loss.append(running_train_loss)
             val_loss.append(running_val_loss)
 
-            if running_val_loss < best_val_loss:
+            if running_val_score > best_val_score:
                 best_epoch = epoch + 1
+                best_val_score = running_val_score
                 best_val_loss = running_val_loss
                 best_dict = deepcopy(model.state_dict())
                 tolerance = 0

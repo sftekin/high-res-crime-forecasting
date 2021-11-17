@@ -1,7 +1,7 @@
 class Config:
     def __init__(self):
         self.data_params = {
-            "simulation_mode": True,
+            "simulation_mode": False,
             "sim_data_path": "simulation.csv",
             "data_raw_path": "chicago_raw.csv",
             "coord_range": [[41.60, 42.05], [-87.9, -87.5]],
@@ -24,7 +24,7 @@ class Config:
             "min_cell_size": (2, 2),
             "normalize_coords": True,
             "k_nearest": 5,
-            "use_calendar": False
+            "use_calendar": True
         }
 
         self.batch_gen_params = {}
