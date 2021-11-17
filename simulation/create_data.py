@@ -12,7 +12,7 @@ def run():
     dataset_dir = "../dataset"
     save_path = os.path.join(dataset_dir, "simulation.csv")
     coord_range = [[0, 1], [0, 1]]
-    node_count = 40
+    node_count = 12
     group_count = 4
     pts = (0.8 - 0.2) * torch.rand(node_count, 2) + 0.2
 
@@ -37,12 +37,17 @@ def run():
         events_per_group.append((num_events_per_step[i] * intensities).astype(int))
     events_per_group = np.stack(events_per_group)
 
-    group_sigma_val = np.array([0.008, 0.008, 0.008, 0.008])
+    group_sigma_val = np.array([0.02, 0.01, 0.005, 0.003])
 
-    group_profiles = np.array([[1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-                               [0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-                               [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-                               [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]])
+    profile_1 = np.ones(node_count // group_count, dtype=int)
+    profile_1[::2] = 0
+    profile_2 = np.logical_not(profile_1).astype(int)
+
+    profile_3 = np.ones(node_count // group_count, dtype=int)
+    profile_3[::4] = 0
+    profile_4 = np.logical_not(profile_3).astype(int)
+
+    group_profiles = np.stack([profile_1, profile_2, profile_3, profile_4], axis=0)
 
     # create distributions
     dists = []
@@ -90,13 +95,13 @@ def run():
     all_df.to_csv(save_path)
     print("data created")
 
-    # for key, val in group_events.items():
-    #     events = np.concatenate(val)
-    #     grid = _convert_grid(events, (25, 25), coord_range)
-    #     plt.figure()
-    #     plt.imshow(grid)
-    #     plt.title(f"{key}")
-    #     plt.show()
+    for key, val in group_events.items():
+        events = np.concatenate(val)
+        grid = _convert_grid(events, (25, 25), coord_range)
+        plt.figure()
+        plt.imshow(grid)
+        plt.title(f"{key}")
+        plt.show()
 
 
 def create_ar_series(total_len):
@@ -105,7 +110,7 @@ def create_ar_series(total_len):
     y_t_1 = 0
     c = 50
     for i in range(total_len):
-        e_t = np.random.normal(scale=10)
+        e_t = np.random.normal(scale=5)
         y_t = np.abs(c + e_t + (w[0] * y_t_1))
         y_t_1 = y_t
         series.append(y_t)
