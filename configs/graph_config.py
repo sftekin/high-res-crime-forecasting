@@ -30,7 +30,7 @@ class GraphConfig(Config):
             "learning_rate": 0.001,
             "clip": 10,
             "early_stop_tolerance": 5,
-            "loss_function": "prob_loss",  # likelihood or prob_loss
+            "loss_function": "likelihood",  # likelihood or prob_loss
             "node_dist_constant": 0  # available only in likelihood
         }
 

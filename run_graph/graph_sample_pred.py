@@ -4,19 +4,23 @@ import pickle as pkl
 import torch
 import numpy as np
 from data_generators.graph_creator import GraphCreator
+from data_generators.grid_creator import GridCreator
 from configs.graph_config import GraphConfig
 from helpers.graph_helper import get_log_like, inverse_label, flatten_labels
 from helpers.plot_helper import _plot_2d
 
 
 def run():
-    model_name = "graph_model"
-    exp_name = "exp_3"
+    model_name = "graph_conv_gru"
+    exp_name = "exp_9/2015-01-01/all"
     model_dir = os.path.join("results", model_name, exp_name)
 
     config = GraphConfig()
     graph_creator = GraphCreator(data_params=config.data_params,
-                                 graph_params=config.graph_params)
+                                 graph_params=config.graph_params,
+                                 save_dir="2015-01-01_all")
+    grid_creator = GridCreator(data_params=config.data_params, grid_params=config.grid_params)
+
     loaded = graph_creator.load()
     if not loaded:
         raise RuntimeError("Data is not created")
@@ -29,8 +33,8 @@ def run():
     # prepare in data
     win_in_len = 10
     time_step = np.random.randint(1200, 1300)
-    events = graph_creator.labels > 0
-    events = events.astype(int)
+    grid = grid_creator.load_grid(dataset_name="all")[..., [2]]
+    events = (grid > 0).astype(int)
     f_labels = flatten_labels(labels=events, regions=graph_creator.regions)
 
     x = torch.from_numpy(graph_creator.node_features[time_step:time_step+win_in_len]).unsqueeze(0).float()
@@ -44,10 +48,10 @@ def run():
     model.to("cpu")
     pred = model(x, edge_index)
     batch_prob = get_log_like(pred, node2cell)
-    grid_pred = inverse_label(pred=batch_prob,
+    grid_pred = inverse_label(pred=batch_prob.exp().detach().cpu(),
                               label_shape=config.grid_params["spatial_res"],
                               regions=graph_creator.regions)
-    grid_pred = grid_pred.squeeze().detach().numpy()
+    grid_pred = grid_pred.squeeze()
     _plot_2d(in_grid=grid_pred,
              coord_range=graph_creator.coord_range,
              grid_size=config.grid_params["spatial_res"],

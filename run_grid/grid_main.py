@@ -32,7 +32,7 @@ def run():
         print(f"Data is found.")
 
     # create save path
-    model_name = "fc_lstm"
+    model_name = "convlstm"
     save_dir = get_save_dir(model_name=model_name)
 
     data_len = config.experiment_params["train_size"] + \

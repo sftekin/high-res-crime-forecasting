@@ -31,6 +31,7 @@ class GraphCreator(DataCreator):
         self.edge_index = None
         self.edge_weights = None
         self.regions = None
+        self.polygons = None
         self.node2cells = {}
 
         # create the data_dump directory
@@ -44,8 +45,9 @@ class GraphCreator(DataCreator):
         node2cells_path = os.path.join(self.graph_save_dir, "node2cells.pkl")
         regions_path = os.path.join(self.graph_save_dir, "regions.pkl")
         edge_weight_path = os.path.join(self.graph_save_dir, "edge_weight.pkl")
+        polygon_path = os.path.join(self.graph_save_dir, "polygons.pkl")
         self.paths = [edge_index_path, node_features_path, node2cells_path,
-                      regions_path, edge_weight_path]
+                      regions_path, edge_weight_path, polygon_path]
 
     def create_graph(self, grid):
         crime_df = super().create()
@@ -62,13 +64,13 @@ class GraphCreator(DataCreator):
         m, n = grid.shape[1:3]
         init_r, init_c = (0, m), (0, n)
         grid_sum = np.squeeze(np.sum(grid, axis=0))
-        regions = self.__divide_regions(grid_sum, threshold=self.threshold, r=init_r, c=init_c)
+        regions = self.divide_regions(grid_sum, threshold=self.threshold, r=init_r, c=init_c)
 
         # find each coordinate of the cells
-        coord_grid = self.__create_coord_grid(m, n)  # M, N, 4, 2
+        coord_grid = self.create_coord_grid(m, n)  # M, N, 4, 2
 
         # convert each rectangle to polygon
-        polygons = self.__region2polygon(coord_grid, regions)
+        polygons = self.region2polygon(coord_grid, regions)
 
         # create nodes
         nodes = np.concatenate([poly.centroid.coords.xy for poly in polygons], axis=1).T
@@ -79,9 +81,10 @@ class GraphCreator(DataCreator):
         # create graph parameters
         self.edge_index = self.create_edge_index(edges)
         self.edge_weights = self.create_edge_weights(nodes)
-        self.node_features = self.__create_node_features(crime_df, nodes, polygons)
+        self.node_features = self.create_node_features(crime_df, nodes, polygons)
         self.regions = regions
-        self.__create_node2cells(regions, coord_grid)
+        self.polygons = polygons
+        self.create_node2cells(regions, coord_grid)
 
         if self.plot:
             plot_regions(polygons, coord_range=self.coord_range)
@@ -95,7 +98,7 @@ class GraphCreator(DataCreator):
                            save_path=save_path)
 
         # save created data
-        self.__save_data()
+        self.save_data()
         print(f"Data Creation finished, data saved under {self.graph_save_dir}")
 
     def create_labels(self, crime_type):
@@ -165,10 +168,12 @@ class GraphCreator(DataCreator):
                 self.regions = pkl.load(f)
             with open(self.paths[4], "rb") as f:
                 self.edge_weights = pkl.load(f)
+            with open(self.paths[5], "rb") as f:
+                self.polygons = pkl.load(f)
             loaded = True
         return loaded
 
-    def __create_node_features(self, crime_df, nodes, polygons):
+    def create_node_features(self, crime_df, nodes, polygons):
         # create lat lon range for each polygon
         ranges = []
         for poly in polygons:
@@ -204,7 +209,7 @@ class GraphCreator(DataCreator):
 
         # create calendar feats
         if self.use_calendar:
-            calendar_feats = self.__create_calendar_features()
+            calendar_feats = self.create_calendar_features()
             node_feats_with_cal = []
             for n in range(len(nodes)):
                 n_cal = np.concatenate([node_features[:, n], calendar_feats], axis=1)
@@ -213,19 +218,19 @@ class GraphCreator(DataCreator):
 
         return node_features
 
-    def __create_node2cells(self, regions, coord_grid):
+    def create_node2cells(self, regions, coord_grid):
         for i, (r, c) in enumerate(regions):
             region_cells = coord_grid[r[0]:r[1], c[0]:c[1]].reshape(-1, 4, 2)
             centers = region_cells.mean(axis=1)
             self.node2cells[i] = centers
 
-    def __save_data(self):
-        items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.edge_weights]
+    def save_data(self):
+        items = [self.edge_index, self.node_features, self.node2cells, self.regions, self.edge_weights, self.polygons]
         for path, item in zip(self.paths, items):
             with open(path, "wb") as f:
                 pkl.dump(item, f)
 
-    def __divide_regions(self, in_grid, threshold, r, c):
+    def divide_regions(self, in_grid, threshold, r, c):
         grid = in_grid[r[0]:r[1], c[0]:c[1]]
 
         if np.sum(grid) <= threshold or grid.shape <= self.min_cell_size:
@@ -234,11 +239,11 @@ class GraphCreator(DataCreator):
             split_ids = self.split_regions(in_grid, r, c)
             region_ids = []
             for r, c in split_ids:
-                region_id = self.__divide_regions(in_grid, threshold, r, c)
+                region_id = self.divide_regions(in_grid, threshold, r, c)
                 region_ids += region_id
             return region_ids
 
-    def __create_coord_grid(self, m, n):
+    def create_coord_grid(self, m, n):
         x = np.linspace(self.coord_range[1][0], self.coord_range[1][1], n + 1)
         y = np.linspace(self.coord_range[0][0], self.coord_range[0][1], m + 1)
 
@@ -251,7 +256,7 @@ class GraphCreator(DataCreator):
 
         return coord_grid
 
-    def __create_calendar_features(self):
+    def create_calendar_features(self):
         week_days = np.array(self.date_r.weekday)
         months = np.array(self.date_r.month)
         day_of_month = np.array(self.date_r.day)
@@ -306,7 +311,7 @@ class GraphCreator(DataCreator):
         return intersections
 
     @staticmethod
-    def __region2polygon(coord_grid, regions):
+    def region2polygon(coord_grid, regions):
         polygons_list = []
         for r, c in regions:
             region_pts = coord_grid[r[0]:r[1], c[0]:c[1]]

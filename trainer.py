@@ -100,7 +100,7 @@ class Trainer:
             print(message_str.format(epoch + 1, running_train_loss, running_val_loss, running_val_score, epoch_time))
 
             # checkpoint
-            # self.__save_model(model)
+            self.__save_model(model)
             train_loss.append(running_train_loss)
             val_loss.append(running_val_loss)
 
@@ -132,7 +132,7 @@ class Trainer:
                 print("-*-" * 10)
 
                 # checkpoint
-                # self.__save_model(model)
+                self.__save_model(model)
                 self.__save_outputs()
                 break
 
@@ -272,13 +272,13 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
-        # plt.figure()
-        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
-        # events = np.concatenate([v.detach().cpu().numpy() for v in y[0].values()])
-        # plt.scatter(events[:, 0], events[:, 1])
-        # plt.xlim(0, 1)
-        # plt.ylim(0, 1)
-        # plt.show()
+        plt.figure()
+        plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
+        events = np.concatenate([v.detach().cpu().numpy() for v in y[0].values()])
+        plt.scatter(events[:, 0], events[:, 1])
+        plt.xlim(0, 1)
+        plt.ylim(0, 1)
+        plt.show()
         total_loss = torch.tensor(0).to(self.device).float()
         counter = 0
         batch_dists = []
