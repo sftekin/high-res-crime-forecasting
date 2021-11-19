@@ -11,6 +11,7 @@ from tqdm import tqdm
 from models.arima import ARIMA
 from models.svr import SVR
 from models.random_forest import RandomForest
+from models.gpr import GaussianProcessRegression
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 from configs.stats_config import StatsConfig
@@ -21,6 +22,7 @@ from sklearn.metrics import average_precision_score, confusion_matrix, accuracy_
 model_dispatcher = {
     "arima": ARIMA,
     "svr": SVR,
+    "gpr": GaussianProcessRegression,
     "random_forest": RandomForest
 }
 
@@ -40,7 +42,7 @@ def run():
     else:
         print(f"Data is found.")
 
-    model_name = "svr"
+    model_name = "gpr"
     model_params = config.model_params[model_name]
 
     # create save path
@@ -88,7 +90,7 @@ def run():
                 arg_list.append((model, sets))
 
             with multiprocessing.Pool(processes=num_process) as pool:
-                func = fit_transform_sklearn if model_name in ["svr", "random_forest"] else fit_transform
+                func = fit_transform_sklearn if model_name in ["svr", "random_forest", "gpr"] else fit_transform
                 preds = list(tqdm(pool.imap(func, arg_list), total=len(arg_list)))
                 preds = np.stack(preds, axis=1)
 

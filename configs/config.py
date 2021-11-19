@@ -11,7 +11,7 @@ class Config:
                                  'NARCOTICS', 'ROBBERY', 'ASSAULT',
                                  'DECEPTIVE PRACTICE', 'BURGLARY'],
             "simulation_categories": ["group_0", "group_1", "group_2", "group_3"],
-            "plot": True
+            "plot": False
         }
         self.grid_params = {
             "spatial_res": (50, 33),  # 1kmx1km

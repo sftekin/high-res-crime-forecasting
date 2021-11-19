@@ -95,7 +95,7 @@ def run():
                               regions=graph_creator.regions,
                               nodes=graph_creator.node_features[0, :, :2],
                               coord_range=[[0, 1], [0, 1]],
-                              spatial_res=(100, 66),
+                              spatial_res=config.grid_params["spatial_res"],
                               k_nearest=5,
                               edge_weights=graph_creator.edge_weights)
 
