@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from torch.distributions.multivariate_normal import MultivariateNormal
+from matplotlib.patches import Ellipse
 
 from helpers.graph_helper import get_log_like, get_graph_stats, inverse_label
 from helpers.static_helper import bin_pred, f1_score, confusion_matrix, accuracy_score
@@ -104,7 +105,7 @@ class Trainer:
             train_loss.append(running_train_loss)
             val_loss.append(running_val_loss)
 
-            if running_val_score > best_val_score:
+            if running_val_loss < best_val_loss:
                 best_epoch = epoch + 1
                 best_val_score = running_val_score
                 best_val_loss = running_val_loss
@@ -272,13 +273,17 @@ class Trainer:
 
     def __likelihood_loss(self, pred, y):
         pred_mu, pred_sigma = pred
-        # plt.figure()
-        # plt.scatter(pred_mu.detach().cpu().numpy()[0, :, 0], pred_mu.detach().cpu().numpy()[0, :, 1])
-        # events = np.concatenate([v.detach().cpu().numpy() for v in y[0].values()])
-        # plt.scatter(events[:, 0], events[:, 1])
-        # plt.xlim(0, 1)
-        # plt.ylim(0, 1)
-        # plt.show()
+        fig, ax = plt.subplots()
+        for i in range(len(pred_mu[0])):
+            loc = pred_mu[0][i].detach().cpu().numpy()
+            width, height = pred_sigma[0][i]
+            ellipse = Ellipse(xy=loc, width=width, height=height, edgecolor="r", fc="None", lw=1)
+            ax.add_patch(ellipse)
+        events = np.concatenate([v.detach().cpu().numpy() for v in y[0].values()])
+        ax.scatter(events[:, 0], events[:, 1])
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        plt.show()
         total_loss = torch.tensor(0).to(self.device).float()
         counter = 0
         batch_dists = []

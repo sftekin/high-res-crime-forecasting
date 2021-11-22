@@ -1,3 +1,4 @@
+import itertools
 from tqdm import tqdm
 import multiprocessing
 
@@ -116,17 +117,21 @@ def _get_batch_stats(args):
     model_out, label, coord_range, grid_shape = args
     pred_mu, pred_sigma = model_out
 
-    batch_dists = []
+    coords = create_coord_grid(coord_range, spatial_size=grid_shape).mean(axis=2).reshape(-1, 2)
+
+    batch_loglike = []
     for i in range(pred_mu.shape[0]):
-        dists = []
+        log_likes = []
         for j in range(pred_mu.shape[1]):
             mu = torch.from_numpy(pred_mu[i, j])
-            sigma = torch.eye(2) * torch.from_numpy(pred_sigma[i, j])
+            sigma = torch.eye(2) * 0.01
             m = MultivariateNormal(mu.T, sigma)
-            dists.append(m)
-        batch_dists.append(dists)
-
-    grid_pred = _sample_dist(batch_dists, coord_range=coord_range, grid_shape=grid_shape)
+            log_like = m.log_prob(torch.from_numpy(coords).float())
+            log_likes.append(log_like)
+        log_likes, _ = torch.stack(log_likes, dim=1).max(dim=1)
+        batch_loglike.append(log_likes)
+    batch_loglike = torch.stack(batch_loglike).numpy()
+    batch_loglike = batch_loglike.reshape(-1, *grid_shape)
 
     label_list = []
     for i in range(len(label)):
@@ -134,10 +139,24 @@ def _get_batch_stats(args):
         label_list.append(l_arr)
 
     grid_label = _get_grid_label(label_list, coord_range=coord_range, grid_shape=grid_shape)
-    grids = [grid_pred, grid_label]
+    grids = [batch_loglike, grid_label]
 
     return grids
 
+
+def create_coord_grid(coord_range, spatial_size):
+    m, n = spatial_size
+    x = np.linspace(coord_range[1][0], coord_range[1][1], n + 1)
+    y = np.linspace(coord_range[0][0], coord_range[0][1], m + 1)
+
+    coord_grid = np.zeros((m, n, 4, 2))
+    for j in range(m):
+        for i in range(n):
+            coords = np.array(list(itertools.product(x[i:i + 2], y[j:j + 2])))
+            coords_ordered = coords[[0, 1, 3, 2], :]
+            coord_grid[m - j - 1, i, :] = coords_ordered
+
+    return coord_grid
 
 def _sample_dist(batch_dist, grid_shape, coord_range):
     batch_size = len(batch_dist)
