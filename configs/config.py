@@ -11,7 +11,7 @@ class Config:
                                  'NARCOTICS', 'ROBBERY', 'ASSAULT',
                                  'DECEPTIVE PRACTICE', 'BURGLARY'],
             "simulation_categories": ["group_0", "group_1", "group_2", "group_3"],
-            "plot": False
+            "plot": True
         }
         self.grid_params = {
             "spatial_res": (50, 33),  # 1kmx1km
@@ -19,7 +19,7 @@ class Config:
         }
 
         self.graph_params = {
-            "event_threshold": 5000,
+            "event_threshold": 1000,
             "include_side_info": False,
             "min_cell_size": (2, 2),
             "normalize_coords": True,
