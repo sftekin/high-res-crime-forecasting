@@ -1,6 +1,4 @@
-# self-organize-grid
-# todo:
-Dynamic map with changing graphs, 
-distance matrix that calculates each cell's distance to nodes.
+# High Resolution Crime Forecasting
 
-
+## link to paper
+https://arxiv.org/pdf/2111.14733.pdf
